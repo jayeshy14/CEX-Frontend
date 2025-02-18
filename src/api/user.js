@@ -19,7 +19,17 @@ export const registerUser = async (userData) => {
     throw error.response?.data?.message || 'Registration failed. Please try again.';
   }
 };
+export const responseGoogle = async (response) => {
+  const tokenId = response.credential;
 
+  try {
+    const res = await axios.post(`${API_URL}/google-login`, { tokenId });
+    return res.data; // Return the response to be handled in LoginPage
+  } catch (error) {
+    console.error('Google login failed', error);
+    return { error: 'Google login failed. Please try again.' };
+  }
+};
 
 export const fetchUserData = async (userId, token) => {
     try {
@@ -35,7 +45,7 @@ export const fetchUserData = async (userId, token) => {
 
 export const depositCryptoApi = async (userAddress, selectedCrypto, amount, txHash, selectedChain) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/deposit-crypto`, {
+    const response = await fetch(`${API_URL}/deposit-crypto`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userAddress, crypto: selectedCrypto, amount, txHash, chain: selectedChain }),
