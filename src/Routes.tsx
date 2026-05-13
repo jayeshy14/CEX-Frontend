@@ -8,6 +8,7 @@ import AdminPanel from "./pages/AdminPanel";
 import Footer from "./components/Footer";
 import Header from "./components/Header";
 import ProtectedRoute from "./components/ProtectedRoute";
+import AdminRoute from "./components/AdminRoute";
 import DepositPage from "./pages/DepositPage";
 import WithdrawPage from "./pages/WithdrawPage";
 import TokenPage from "./pages/TokenPage";
@@ -46,7 +47,7 @@ const AppRoutes = () => {
         path="/user-dashboard"
         element={<ProtectedRoute element={<UserDashboard />} />}
       />
-      <Route path="/admin" element={<AdminPanel />} />
+      <Route path="/admin" element={<AdminRoute element={<AdminPanel />} />} />
       <Route path="/deposit" element={<DepositPage />} />
       <Route path="/withdraw" element={<WithdrawPage />} />
       <Route path="/chart" element={<TradingChart />} />

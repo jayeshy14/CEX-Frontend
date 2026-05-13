@@ -2,70 +2,68 @@ import { useState, useEffect } from 'react';
 import { addCrypto, removeCrypto } from '../api/admin';
 import { fetchCryptocurrencies } from '../api/cryptocurrencies';
 
-interface AdminCrypto {
+interface Crypto {
+  _id: string;
   name: string;
   symbol: string;
-  address: string;
-  liquidity: string;
+  current_price: number;
 }
 
-interface CryptosResponse {
+interface NewCryptoForm {
+  name: string;
+  symbol: string;
+  current_price: string;
+}
+
+interface FetchResponse {
   status: string;
-  cryptos?: AdminCrypto[];
+  data?: { cryptocurrencies: Crypto[] };
 }
 
 const AdminPanel = () => {
-  const [cryptos, setCryptos] = useState<AdminCrypto[]>([]);
-  const [newCrypto, setNewCrypto] = useState<AdminCrypto>({
-    name: '',
-    symbol: '',
-    address: '',
-    liquidity: '',
-  });
-  const [isAddingCrypto, setIsAddingCrypto] = useState<boolean>(false);
-  const [error, setError] = useState<string>('');
+  const [cryptos, setCryptos] = useState<Crypto[]>([]);
+  const [newCrypto, setNewCrypto] = useState<NewCryptoForm>({ name: '', symbol: '', current_price: '' });
+  const [isAddingCrypto, setIsAddingCrypto] = useState(false);
+  const [error, setError] = useState('');
 
-  const fetchCryptos = async () => {
+  const loadCryptos = async () => {
     try {
-      const data = (await fetchCryptocurrencies()) as CryptosResponse;
-      if (data.status === 'success' && data.cryptos) {
-        setCryptos(data.cryptos);
+      const data = (await fetchCryptocurrencies()) as FetchResponse;
+      if (data.status === 'success' && data.data?.cryptocurrencies) {
+        setCryptos(data.data.cryptocurrencies);
       }
-    } catch (err) {
-      console.error('Error fetching cryptocurrencies:', err);
+    } catch {
+      console.error('Failed to load cryptocurrencies');
     }
   };
 
-  useEffect(() => {
-    fetchCryptos();
-  }, []);
+  useEffect(() => { loadCryptos(); }, []);
 
   const handleAddCrypto = async () => {
+    setError('');
     try {
-      const token = localStorage.getItem('token') ?? '';
-      const result = (await addCrypto(newCrypto, token)) as { status?: string };
+      const result = (await addCrypto({
+        name: newCrypto.name,
+        symbol: newCrypto.symbol,
+        current_price: parseFloat(newCrypto.current_price),
+      })) as { status?: string };
 
       if (result?.status === 'success') {
-        fetchCryptos();
-        setNewCrypto({ name: '', symbol: '', address: '', liquidity: '' });
+        await loadCryptos();
+        setNewCrypto({ name: '', symbol: '', current_price: '' });
         setIsAddingCrypto(false);
       }
     } catch (err) {
-      console.error('Error adding cryptocurrency:', err);
       setError(typeof err === 'string' ? err : 'Failed to add cryptocurrency');
     }
   };
 
   const handleRemoveCrypto = async (symbol: string) => {
+    setError('');
     try {
-      const token = localStorage.getItem('token') ?? '';
-      const result = (await removeCrypto(symbol, token)) as { status?: string };
-
-      if (result?.status === 'success') {
-        fetchCryptos();
-      }
+      await removeCrypto(symbol);
+      await loadCryptos();
     } catch (err) {
-      console.error('Error removing cryptocurrency:', err);
       setError(typeof err === 'string' ? err : 'Failed to remove cryptocurrency');
     }
   };
@@ -76,22 +74,17 @@ const AdminPanel = () => {
         <h2 className="text-2xl font-semibold text-yellow-400">Admin Panel</h2>
         <nav className="mt-8 flex-1">
           <ul className="space-y-4">
-            {[{ id: 'cryptos', label: 'Cryptocurrencies' }].map((item) => (
-              <li key={item.id}>
-                <a
-                  href={`#${item.id}`}
-                  className="block px-4 py-2 rounded hover:text-yellow-400"
-                >
-                  {item.label}
-                </a>
-              </li>
-            ))}
+            <li>
+              <a href="#cryptos" className="block px-4 py-2 rounded hover:text-yellow-400">
+                Cryptocurrencies
+              </a>
+            </li>
           </ul>
         </nav>
       </aside>
 
       <div className="flex-1 bg-gray-900 p-8 overflow-auto">
-        <h2 className="text-3xl font-semibold text-yellow-400 text-center">
+        <h2 id="cryptos" className="text-3xl font-semibold text-yellow-400 text-center">
           Listed Cryptocurrencies
         </h2>
         {error && <p className="text-red-500 text-center mt-2">{error}</p>}
@@ -109,18 +102,16 @@ const AdminPanel = () => {
             <tr className="text-gray-300 bg-gray-700">
               <th className="px-4 py-3 text-left">Name</th>
               <th className="px-4 py-3 text-left">Symbol</th>
-              <th className="px-4 py-3 text-left">Wallet Address</th>
-              <th className="px-4 py-3 text-left">Liquidity</th>
+              <th className="px-4 py-3 text-left">Price (USD)</th>
               <th className="px-4 py-3 text-left">Action</th>
             </tr>
           </thead>
           <tbody>
-            {cryptos.map((crypto, index) => (
-              <tr key={index} className="border-b border-gray-700 text-white">
+            {cryptos.map((crypto) => (
+              <tr key={crypto._id} className="border-b border-gray-700 text-white">
                 <td className="px-4 py-3">{crypto.name}</td>
                 <td className="px-4 py-3">{crypto.symbol}</td>
-                <td className="px-4 py-3">{crypto.address}</td>
-                <td className="px-4 py-3">{crypto.liquidity}</td>
+                <td className="px-4 py-3">${crypto.current_price.toLocaleString()}</td>
                 <td className="px-4 py-3">
                   <button
                     onClick={() => handleRemoveCrypto(crypto.symbol)}
@@ -134,6 +125,7 @@ const AdminPanel = () => {
           </tbody>
         </table>
       </div>
+
       {isAddingCrypto && (
         <div className="fixed inset-0 flex justify-center items-center bg-gray-700 bg-opacity-75">
           <div className="bg-gray-800 p-6 rounded-lg shadow-xl text-yellow-400 w-96">
@@ -146,28 +138,18 @@ const AdminPanel = () => {
               onChange={(e) => setNewCrypto({ ...newCrypto, name: e.target.value })}
               className="px-4 py-2 bg-gray-700 border border-yellow-500 rounded mb-4 w-full text-yellow-400 placeholder-yellow-500"
             />
-
             <input
               type="text"
-              placeholder="Symbol"
+              placeholder="Symbol (e.g. BTC)"
               value={newCrypto.symbol}
               onChange={(e) => setNewCrypto({ ...newCrypto, symbol: e.target.value })}
               className="px-4 py-2 bg-gray-700 border border-yellow-500 rounded mb-4 w-full text-yellow-400 placeholder-yellow-500"
             />
-
             <input
-              type="text"
-              placeholder="Wallet Address"
-              value={newCrypto.address}
-              onChange={(e) => setNewCrypto({ ...newCrypto, address: e.target.value })}
-              className="px-4 py-2 bg-gray-700 border border-yellow-500 rounded mb-4 w-full text-yellow-400 placeholder-yellow-500"
-            />
-
-            <input
-              type="text"
-              placeholder="Initial Liquidity"
-              value={newCrypto.liquidity}
-              onChange={(e) => setNewCrypto({ ...newCrypto, liquidity: e.target.value })}
+              type="number"
+              placeholder="Current Price (USD)"
+              value={newCrypto.current_price}
+              onChange={(e) => setNewCrypto({ ...newCrypto, current_price: e.target.value })}
               className="px-4 py-2 bg-gray-700 border border-yellow-500 rounded mb-4 w-full text-yellow-400 placeholder-yellow-500"
             />
 
@@ -177,10 +159,9 @@ const AdminPanel = () => {
             >
               Add
             </button>
-
             <button
               onClick={() => setIsAddingCrypto(false)}
-              className="px-4 py-2 bg-gray-600 text-yellow-400 rounded w-full mt-4 flex items-center justify-center"
+              className="px-4 py-2 bg-gray-600 text-yellow-400 rounded w-full mt-4"
             >
               Close
             </button>

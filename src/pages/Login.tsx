@@ -31,7 +31,7 @@ const LoginPage = () => {
 
     try {
       const data = await loginUser(email, password);
-      login?.(data.token, data.userId);
+      login?.(data.token, data.userId, data.role ?? 'user');
       navigate('/user-dashboard');
     } catch (err) {
       setError(typeof err === 'string' ? err : 'Login failed');
@@ -118,7 +118,7 @@ const LoginPage = () => {
               onSuccess={async (response) => {
                 const result = await responseGoogle(response);
                 if ('token' in result && result.token) {
-                  login?.(result.token, result.userId);
+                  login?.(result.token, result.userId, 'user');
                   navigate('/user-dashboard');
                 }
               }}

@@ -4,8 +4,7 @@ import type { AxiosError } from 'axios';
 interface NewCrypto {
   name: string;
   symbol: string;
-  address: string;
-  liquidity: string;
+  current_price: number;
 }
 
 const extractMessage = (error: unknown, fallback: string): string => {
@@ -13,7 +12,7 @@ const extractMessage = (error: unknown, fallback: string): string => {
   return err?.response?.data?.message ?? fallback;
 };
 
-export const addCrypto = async (newCrypto: NewCrypto, _token?: string): Promise<unknown> => {
+export const addCrypto = async (newCrypto: NewCrypto): Promise<unknown> => {
   try {
     const response = await axiosInstance.post('/admin/add-crypto', newCrypto);
     return response.data;
@@ -22,7 +21,7 @@ export const addCrypto = async (newCrypto: NewCrypto, _token?: string): Promise<
   }
 };
 
-export const removeCrypto = async (symbol: string, _token?: string): Promise<unknown> => {
+export const removeCrypto = async (symbol: string): Promise<unknown> => {
   try {
     const response = await axiosInstance.delete(`/admin/remove-crypto/${symbol}`);
     return response.data;

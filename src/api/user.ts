@@ -4,6 +4,7 @@ import type { AxiosError } from 'axios';
 interface LoginResponse {
   token: string;
   userId: string;
+  role?: string;
   status?: string;
   message?: string;
 }

@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 
 interface AuthUser {
   id: string;
+  role: string;
 }
 
 interface IAuthContext {
@@ -9,7 +10,7 @@ interface IAuthContext {
   userId: string | null;
   isAuthenticated: boolean | null;
   user: AuthUser | null;
-  login: (token: string, userId: string) => void;
+  login: (token: string, userId: string, role: string) => void;
   logout: () => void;
 }
 
@@ -24,27 +25,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
     const storedUserId = localStorage.getItem('userId');
+    const storedRole = localStorage.getItem('role') ?? 'user';
 
     if (storedToken && storedUserId) {
       setIsAuthenticated(true);
-      setUser({ id: storedUserId });
+      setUser({ id: storedUserId, role: storedRole });
     } else {
       setIsAuthenticated(false);
     }
   }, []);
 
-  const login = (newToken: string, newUserId: string) => {
+  const login = (newToken: string, newUserId: string, role: string) => {
     localStorage.setItem('token', newToken);
     localStorage.setItem('userId', newUserId);
+    localStorage.setItem('role', role);
     setToken(newToken);
     setUserId(newUserId);
     setIsAuthenticated(true);
-    setUser({ id: newUserId });
+    setUser({ id: newUserId, role });
   };
 
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('userId');
+    localStorage.removeItem('role');
     setToken(null);
     setUserId(null);
     setIsAuthenticated(false);
