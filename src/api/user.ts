@@ -46,24 +46,6 @@ export const registerUser = async (userData: RegisterPayload): Promise<unknown> 
   }
 };
 
-interface GoogleCredentialResponse {
-  credential?: string;
-}
-
-export const responseGoogle = async (
-  response: GoogleCredentialResponse
-): Promise<LoginResponse | { error: string }> => {
-  const tokenId = response.credential;
-
-  try {
-    const res = await axiosInstance.post<LoginResponse>('/users/google-login', { tokenId });
-    return res.data;
-  } catch (error) {
-    console.error('Google login failed', error);
-    return { error: 'Google login failed. Please try again.' };
-  }
-};
-
 export const fetchUserData = async (userId: string, _token?: string): Promise<unknown> => {
   try {
     const response = await axiosInstance.get(`/users/${userId}`);
