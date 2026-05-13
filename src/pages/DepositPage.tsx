@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
+import { toast } from 'react-toastify';
 import { depositCrypto } from '../utils/deposit-crypto/depositCrypto';
 import ConnectButton from '../components/ConnectButton';
 import { fetchCryptocurrencies } from '../api/cryptocurrencies';
@@ -51,7 +52,7 @@ const DepositPage = () => {
   };
 
   const handleUSDDeposit = () => {
-    alert('USD Deposit functionality is being handled!');
+    toast.info('USD deposit is not yet available.');
   };
 
   return (

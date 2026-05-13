@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { toast } from 'react-toastify';
 import { fetchOrderBook, placeOrder, cancelOrder } from '../api/orders';
 import { useAuth } from '../context/AuthContext';
 
@@ -72,7 +73,7 @@ const TokenPage = () => {
 
   const handlePlaceOrder = async () => {
     if (!userId) {
-      alert('You must be logged in to place an order.');
+      toast.error('You must be logged in to place an order.');
       return;
     }
     try {
@@ -86,22 +87,22 @@ const TokenPage = () => {
         price,
       });
 
-      alert('Order placed successfully!');
+      toast.success('Order placed successfully!');
       handleFetchOrderBook();
     } catch (error) {
       console.error('Error placing order:', error);
-      alert(typeof error === 'string' ? error : 'Failed to place order');
+      toast.error(typeof error === 'string' ? error : 'Failed to place order');
     }
   };
 
   const handleCancelOrder = async (orderId: string) => {
     try {
       await cancelOrder(orderId);
-      alert('Order canceled successfully!');
+      toast.success('Order canceled successfully!');
       handleFetchOrderBook();
     } catch (error) {
       console.error('Error canceling order:', error);
-      alert(typeof error === 'string' ? error : 'Failed to cancel order');
+      toast.error(typeof error === 'string' ? error : 'Failed to cancel order');
     }
   };
 

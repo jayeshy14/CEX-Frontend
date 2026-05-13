@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { fetchCryptocurrencies } from '../api/cryptocurrencies';
 
 interface MarketCrypto {
@@ -19,6 +20,7 @@ interface CryptosResponse {
 }
 
 const CryptocurrencyPage = () => {
+  const navigate = useNavigate();
   const [cryptocurrencies, setCryptocurrencies] = useState<MarketCrypto[]>([]);
 
   const [selectedCrypto, setSelectedCrypto] = useState<MarketCrypto | null>(null);
@@ -150,13 +152,13 @@ const CryptocurrencyPage = () => {
               />
               <div className="flex space-x-4">
                 <button
-                  onClick={() => alert('Buying')}
+                  onClick={() => navigate(`/token/${selectedCrypto.symbol}`)}
                   className="px-4 py-2 bg-green-600 text-white rounded-lg w-full hover:bg-green-700"
                 >
                   Buy
                 </button>
                 <button
-                  onClick={() => alert('Selling')}
+                  onClick={() => navigate(`/token/${selectedCrypto.symbol}`)}
                   className="px-4 py-2 bg-red-600 text-white rounded-lg w-full hover:bg-red-700"
                 >
                   Sell

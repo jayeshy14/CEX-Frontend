@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ethers } from 'ethers';
+import { toast } from 'react-toastify';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import '@solana/wallet-adapter-react-ui/styles.css';
 
@@ -13,7 +14,7 @@ const ConnectButton = ({ selectedChain, setEthereumSigner }: ConnectButtonProps)
 
   const connectToEthWallet = async (): Promise<void> => {
     if (!window.ethereum) {
-      alert('MetaMask is not installed');
+      toast.error('MetaMask is not installed');
       return;
     }
 

@@ -136,7 +136,7 @@ export const depositOnSolana = async (
       }
     } catch (error) {
       console.error('Transaction failed:', error);
-      alert('Transaction failed');
+      toast.error('Transaction failed');
     }
   }
 };
