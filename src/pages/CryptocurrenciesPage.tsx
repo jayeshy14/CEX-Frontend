@@ -24,6 +24,7 @@ const CryptocurrencyPage = () => {
   const [cryptocurrencies, setCryptocurrencies] = useState<MarketCrypto[]>([]);
 
   const [selectedCrypto, setSelectedCrypto] = useState<MarketCrypto | null>(null);
+  const [selectedQuote, setSelectedQuote] = useState<string>('');
   const [tradeAmount, setTradeAmount] = useState<string>('');
   const [isTradeOpen, setIsTradeOpen] = useState<boolean>(false);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: null, direction: 'asc' });
@@ -143,6 +144,20 @@ const CryptocurrencyPage = () => {
               <h3 className="text-xl font-bold mb-4 text-yellow-400">
                 Trade {selectedCrypto.name} ({selectedCrypto.symbol})
               </h3>
+              <select
+                value={selectedQuote}
+                onChange={(e) => setSelectedQuote(e.target.value)}
+                className="px-4 py-2 bg-gray-800 border border-gray-700 rounded mb-4 w-full text-white"
+              >
+                <option value="">-- Select quote currency --</option>
+                {cryptocurrencies
+                  .filter((c) => c.symbol !== selectedCrypto.symbol)
+                  .map((c) => (
+                    <option key={c.symbol} value={c.symbol}>
+                      {c.symbol}
+                    </option>
+                  ))}
+              </select>
               <input
                 type="number"
                 value={tradeAmount}
@@ -152,14 +167,16 @@ const CryptocurrencyPage = () => {
               />
               <div className="flex space-x-4">
                 <button
-                  onClick={() => navigate(`/token/${selectedCrypto.symbol}`)}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg w-full hover:bg-green-700"
+                  onClick={() => selectedQuote && navigate(`/token/${selectedCrypto.symbol}/${selectedQuote}`)}
+                  disabled={!selectedQuote}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg w-full hover:bg-green-700 disabled:opacity-50"
                 >
                   Buy
                 </button>
                 <button
-                  onClick={() => navigate(`/token/${selectedCrypto.symbol}`)}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg w-full hover:bg-red-700"
+                  onClick={() => selectedQuote && navigate(`/token/${selectedCrypto.symbol}/${selectedQuote}`)}
+                  disabled={!selectedQuote}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg w-full hover:bg-red-700 disabled:opacity-50"
                 >
                   Sell
                 </button>

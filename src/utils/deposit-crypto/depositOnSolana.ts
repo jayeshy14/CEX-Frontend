@@ -44,7 +44,7 @@ export const depositOnSolana = async (
 
   await solana.connect();
   const userAddress = solana.publicKey.toString();
-  const connection = new Connection('https://api.devnet-beta.solana.com');
+  const connection = new Connection('https://api.devnet.solana.com');
 
   if (selectedCrypto === 'SOL') {
     const transaction = new Transaction().add(

@@ -1,19 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { fetchOrderBook, placeOrder, cancelOrder } from '../api/orders';
-import { useAuth } from '../context/AuthContext';
-
-interface TokenInfo {
-  name: string;
-  symbol: string;
-  current_price: number;
-  _24hr_change: number;
-  _24hr_volume: string;
-  total_supply: string;
-  market_cap: string;
-  _24hr_low: number;
-  _24hr_high: number;
-}
+import { fetchCryptocurrency } from '../api/cryptocurrencies';
+import type { CryptoData } from '../types/api';
 
 interface OrderRow {
   _id: string;
@@ -22,161 +12,181 @@ interface OrderRow {
   price: number | null;
 }
 
+interface OrderBookData {
+  limitBuyOrders: OrderRow[];
+  limitSellOrders: OrderRow[];
+  marketBuyOrders: OrderRow[];
+  marketSellOrders: OrderRow[];
+}
+
 const TokenPage = () => {
-  const { userId } = useAuth();
+  const { symbolA, symbolB } = useParams<{ symbolA: string; symbolB: string }>();
 
-  const [tokenData] = useState<TokenInfo>({
-    name: 'Ethereum',
-    symbol: 'ETH',
-    current_price: 2300,
-    _24hr_change: -1.5,
-    _24hr_volume: '2,500,000 ETH',
-    total_supply: '100,000,000 ETH',
-    market_cap: '250B',
-    _24hr_low: 2200,
-    _24hr_high: 2400,
-  });
-
+  const [cryptoA, setCryptoA] = useState<CryptoData | null>(null);
+  const [cryptoB, setCryptoB] = useState<CryptoData | null>(null);
+  const [orderBook, setOrderBook] = useState<OrderBookData | null>(null);
   const [orderType, setOrderType] = useState<'buy' | 'sell'>('buy');
   const [orderMode, setOrderMode] = useState<'limit' | 'market'>('limit');
   const [amount, setAmount] = useState<string>('');
   const [price, setPrice] = useState<string>('');
-  const [cryptoA, setCryptoA] = useState<string>('');
-  const [cryptoB, setCryptoB] = useState<string>('');
-  const [orderBook, setOrderBook] = useState<OrderRow[]>([
-    { _id: '1', type: 'buy', amount: 2.5, price: 45000 },
-    { _id: '2', type: 'sell', amount: 1.2, price: 45500 },
-    { _id: '3', type: 'buy', amount: 3.8, price: 44800 },
-    { _id: '4', type: 'sell', amount: 0.9, price: 46000 },
-    { _id: '5', type: 'buy', amount: 5.0, price: null },
-    { _id: '6', type: 'sell', amount: 2.3, price: null },
-  ]);
+  const [loading, setLoading] = useState(true);
 
-  // Reference setters used by future real-data wiring.
-  void setCryptoA;
-  void setCryptoB;
-
-  const handleFetchOrderBook = async () => {
-    if (!cryptoA || !cryptoB) return;
+  const loadOrderBook = useCallback(async (idA: string, idB: string) => {
     try {
-      const data = (await fetchOrderBook(cryptoA, cryptoB)) as { orderBook?: OrderRow[] };
-      if (data?.orderBook) setOrderBook(data.orderBook);
+      const data = (await fetchOrderBook(idA, idB)) as OrderBookData | null;
+      if (data) setOrderBook(data);
     } catch (error) {
       console.error('Error fetching order book:', error);
     }
-  };
-
-  useEffect(() => {
-    handleFetchOrderBook();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (!symbolA || !symbolB) return;
+
+    const load = async () => {
+      setLoading(true);
+      try {
+        const [dataA, dataB] = await Promise.all([
+          fetchCryptocurrency(symbolA),
+          fetchCryptocurrency(symbolB),
+        ]);
+
+        if (!dataA) { toast.error(`Cryptocurrency ${symbolA} not found.`); return; }
+        if (!dataB) { toast.error(`Cryptocurrency ${symbolB} not found.`); return; }
+
+        setCryptoA(dataA);
+        setCryptoB(dataB);
+
+        const idA = dataA._id;
+        const idB = dataB._id;
+        if (idA && idB) await loadOrderBook(idA, idB);
+      } catch (error) {
+        console.error('Failed to load token page:', error);
+        toast.error('Failed to load trading data.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void load();
+  }, [symbolA, symbolB, loadOrderBook]);
+
   const handlePlaceOrder = async () => {
-    if (!userId) {
-      toast.error('You must be logged in to place an order.');
+    if (!cryptoA || !cryptoB) return;
+
+    const idA = cryptoA._id;
+    const idB = cryptoB._id;
+
+    if (!amount || parseFloat(amount) <= 0) {
+      toast.error('Enter a valid amount.');
       return;
     }
-    try {
-      await placeOrder({
-        orderType,
-        orderMode,
-        userId,
-        cryptoA,
-        cryptoB,
-        amount,
-        price,
-      });
+    if (orderMode === 'limit' && (!price || parseFloat(price) <= 0)) {
+      toast.error('Enter a valid price for limit orders.');
+      return;
+    }
 
-      toast.success('Order placed successfully!');
-      handleFetchOrderBook();
+    try {
+      await placeOrder({ orderType, orderMode, cryptoA: idA, cryptoB: idB, amount, price });
+      toast.success('Order placed!');
+      setAmount('');
+      setPrice('');
+      await loadOrderBook(idA, idB);
     } catch (error) {
-      console.error('Error placing order:', error);
-      toast.error(typeof error === 'string' ? error : 'Failed to place order');
+      toast.error(typeof error === 'string' ? error : 'Failed to place order.');
     }
   };
 
   const handleCancelOrder = async (orderId: string) => {
     try {
       await cancelOrder(orderId);
-      toast.success('Order canceled successfully!');
-      handleFetchOrderBook();
+      toast.success('Order canceled.');
+      if (cryptoA && cryptoB) await loadOrderBook(cryptoA._id, cryptoB._id);
     } catch (error) {
-      console.error('Error canceling order:', error);
-      toast.error(typeof error === 'string' ? error : 'Failed to cancel order');
+      toast.error(typeof error === 'string' ? error : 'Failed to cancel order.');
     }
   };
 
+  const allOrders: OrderRow[] = orderBook
+    ? [
+        ...orderBook.limitBuyOrders,
+        ...orderBook.limitSellOrders,
+        ...orderBook.marketBuyOrders,
+        ...orderBook.marketSellOrders,
+      ]
+    : [];
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+        Loading {symbolA}/{symbolB}...
+      </div>
+    );
+  }
+
+  if (!cryptoA || !cryptoB) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+        <p className="text-red-400">Token pair not found. <a href="/cryptocurrencies" className="text-yellow-400 underline">Back to markets</a></p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black text-white flex flex-col items-center py-12 px-4 md:px-8 space-y-8">
-      <div className="w-full bg-gray-800/60 backdrop-blur-lg rounded-2xl shadow-2xl border border-gray-700/50 hover:scale-[1.02] hover:shadow-xl transition-transform">
-        <div className="p-8 space-y-6">
-          <h2 className="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">
-            {tokenData.name} ({tokenData.symbol})
-          </h2>
 
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="space-y-3">
-              <div className="flex justify-between items-center pb-3 border-b border-gray-700">
-                <span className="text-gray-400">Current Price</span>
-                <span className="font-semibold text-white">${tokenData.current_price}</span>
-              </div>
-              <div className="flex justify-between items-center pb-3 border-b border-gray-700">
-                <span className="text-gray-400">Market Cap</span>
-                <span className="font-semibold text-white">{tokenData.market_cap}</span>
-              </div>
+      {/* Token Info */}
+      <div className="w-full bg-gray-800/60 backdrop-blur-lg rounded-2xl shadow-2xl border border-gray-700/50 p-8">
+        <h2 className="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 mb-6">
+          {cryptoA.name} / {cryptoB.name}
+        </h2>
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="space-y-3">
+            <div className="flex justify-between items-center pb-3 border-b border-gray-700">
+              <span className="text-gray-400">{symbolA} Price</span>
+              <span className="font-semibold text-white">${cryptoA.current_price?.toFixed(2) ?? '—'}</span>
             </div>
-
-            <div className="space-y-3">
-              <div className="flex justify-between items-center pb-3 border-b border-gray-700">
-                <span className="text-gray-400">24h Change</span>
-                <span
-                  className={`font-semibold ${
-                    tokenData._24hr_change >= 0 ? 'text-green-500' : 'text-red-500'
-                  }`}
-                >
-                  {tokenData._24hr_change}%
-                </span>
-              </div>
-              <div className="flex justify-between items-center pb-3 border-b border-gray-700">
-                <span className="text-gray-400">24h Volume</span>
-                <span className="font-semibold text-white">{tokenData._24hr_volume}</span>
-              </div>
+            <div className="flex justify-between items-center pb-3 border-b border-gray-700">
+              <span className="text-gray-400">{symbolB} Price</span>
+              <span className="font-semibold text-white">${cryptoB.current_price?.toFixed(2) ?? '—'}</span>
+            </div>
+          </div>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center pb-3 border-b border-gray-700">
+              <span className="text-gray-400">Pair</span>
+              <span className="font-semibold text-yellow-400">{symbolA}/{symbolB}</span>
+            </div>
+            <div className="flex justify-between items-center pb-3 border-b border-gray-700">
+              <span className="text-gray-400">Open Orders</span>
+              <span className="font-semibold text-white">{allOrders.length}</span>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Place Order */}
       <div className="w-full bg-gray-800/60 backdrop-blur-lg rounded-2xl shadow-2xl border border-gray-700/50 p-6">
-        <h3 className="text-3xl font-bold text-yellow-400 mb-4">Place Order</h3>
+        <h3 className="text-2xl font-bold text-yellow-400 mb-4">Place Order</h3>
         <div className="flex flex-col space-y-4">
           <div className="flex space-x-4">
             <button
               onClick={() => setOrderType('buy')}
-              className={`px-6 py-3 font-bold rounded-lg transition-all duration-300 ${
-                orderType === 'buy'
-                  ? 'bg-green-500 text-black'
-                  : 'bg-green-700 text-white hover:bg-green-600'
-              }`}
+              className={`flex-1 px-6 py-3 font-bold rounded-lg transition-all ${orderType === 'buy' ? 'bg-green-500 text-black' : 'bg-green-900 text-white hover:bg-green-700'}`}
             >
-              Buy
+              Buy {symbolA}
             </button>
-
             <button
               onClick={() => setOrderType('sell')}
-              className={`px-6 py-3 font-bold rounded-lg transition-all duration-300 ${
-                orderType === 'sell'
-                  ? 'bg-red-500 text-black'
-                  : 'bg-red-700 text-white hover:bg-red-600'
-              }`}
+              className={`flex-1 px-6 py-3 font-bold rounded-lg transition-all ${orderType === 'sell' ? 'bg-red-500 text-black' : 'bg-red-900 text-white hover:bg-red-700'}`}
             >
-              Sell
+              Sell {symbolA}
             </button>
           </div>
 
           <select
             value={orderMode}
             onChange={(e) => setOrderMode(e.target.value as 'limit' | 'market')}
-            className="p-3 rounded bg-gray-700"
+            className="p-3 rounded bg-gray-700 text-white"
           >
             <option value="limit">Limit Order</option>
             <option value="market">Market Order</option>
@@ -184,7 +194,7 @@ const TokenPage = () => {
 
           <input
             type="number"
-            placeholder="Amount"
+            placeholder={`Amount (${symbolA})`}
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             className="p-3 rounded bg-gray-700 text-white"
@@ -193,7 +203,7 @@ const TokenPage = () => {
           {orderMode === 'limit' && (
             <input
               type="number"
-              placeholder="Price"
+              placeholder={`Price (${symbolB})`}
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               className="p-3 rounded bg-gray-700 text-white"
@@ -201,45 +211,51 @@ const TokenPage = () => {
           )}
 
           <button
-            onClick={handlePlaceOrder}
-            className="bg-yellow-500 p-3 rounded text-black font-bold hover:bg-yellow-600"
+            onClick={() => void handlePlaceOrder()}
+            disabled={!amount}
+            className="bg-yellow-500 p-3 rounded text-black font-bold hover:bg-yellow-600 disabled:opacity-50"
           >
-            Place Order
+            Place {orderType === 'buy' ? 'Buy' : 'Sell'} Order
           </button>
         </div>
       </div>
 
+      {/* Order Book */}
       <div className="w-full bg-gray-800/60 backdrop-blur-lg rounded-2xl shadow-2xl border border-gray-700/50 p-6">
-        <h3 className="text-3xl font-bold text-yellow-400 mb-4">Order Book</h3>
-        <table className="w-full text-left">
-          <thead className="bg-gray-700/50 text-gray-300">
-            <tr>
-              <th className="px-4 py-3 font-semibold">Type</th>
-              <th className="px-4 py-3 font-semibold">Amount</th>
-              <th className="px-4 py-3 font-semibold">Price</th>
-              <th className="px-4 py-3 font-semibold">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {orderBook.map((order) => (
-              <tr key={order._id} className="border-b border-gray-700">
-                <td className={order.type === 'buy' ? 'text-green-400' : 'text-red-400'}>
-                  {order.type}
-                </td>
-                <td>{order.amount}</td>
-                <td>${order.price ?? 'Market Price'}</td>
-                <td>
-                  <button
-                    onClick={() => handleCancelOrder(order._id)}
-                    className="bg-red-500 p-2 rounded text-black font-bold hover:bg-red-600"
-                  >
-                    Cancel
-                  </button>
-                </td>
+        <h3 className="text-2xl font-bold text-yellow-400 mb-4">Order Book</h3>
+        {allOrders.length === 0 ? (
+          <p className="text-gray-400 text-center py-6">No open orders for this pair.</p>
+        ) : (
+          <table className="w-full text-left">
+            <thead className="bg-gray-700/50 text-gray-300">
+              <tr>
+                <th className="px-4 py-3 font-semibold">Type</th>
+                <th className="px-4 py-3 font-semibold">Amount ({symbolA})</th>
+                <th className="px-4 py-3 font-semibold">Price ({symbolB})</th>
+                <th className="px-4 py-3 font-semibold">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {allOrders.map((order) => (
+                <tr key={order._id} className="border-b border-gray-700 hover:bg-gray-800/40">
+                  <td className={`px-4 py-3 font-semibold ${order.type === 'buy' ? 'text-green-400' : 'text-red-400'}`}>
+                    {order.type.toUpperCase()}
+                  </td>
+                  <td className="px-4 py-3">{order.amount}</td>
+                  <td className="px-4 py-3">{order.price != null ? order.price : 'Market'}</td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => void handleCancelOrder(order._id)}
+                      className="bg-red-600 px-3 py-1 rounded text-white text-sm font-bold hover:bg-red-700"
+                    >
+                      Cancel
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

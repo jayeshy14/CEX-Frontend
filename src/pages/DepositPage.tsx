@@ -12,23 +12,16 @@ interface ChainOption {
 interface DepositCrypto {
   name: string;
   symbol: string;
-  amount: number;
   chains: ChainOption[];
 }
 
+interface CryptosResponse {
+  status: string;
+  data?: { cryptocurrencies?: DepositCrypto[] };
+}
+
 const DepositPage = () => {
-  const [cryptocurrencies] = useState<DepositCrypto[]>([
-    { name: 'Ethereum', symbol: 'ETH', amount: 1.5, chains: [{ chain_name: 'ETHEREUM' }, { chain_name: 'SOLANA' }, { chain_name: 'POLYGON' }, { chain_name: 'BSC' }] },
-    { name: 'Bitcoin', symbol: 'BTC', amount: 0.2, chains: [{ chain_name: 'BITCOIN' }] },
-    { name: 'Solana', symbol: 'SOL', amount: 20, chains: [{ chain_name: 'SOLANA' }] },
-    { name: 'Binance Coin', symbol: 'BNB', amount: 5, chains: [{ chain_name: 'BSC' }] },
-    { name: 'Polygon', symbol: 'MATIC', amount: 100, chains: [{ chain_name: 'POLYGON' }] },
-    { name: 'Cardano', symbol: 'ADA', amount: 250, chains: [{ chain_name: 'CARDANO' }] },
-    { name: 'Dogecoin', symbol: 'DOGE', amount: 10000, chains: [{ chain_name: 'DOGECOIN' }] },
-    { name: 'Litecoin', symbol: 'LTC', amount: 2, chains: [{ chain_name: 'LITECOIN' }] },
-    { name: 'Chainlink', symbol: 'LINK', amount: 50, chains: [{ chain_name: 'ETHEREUM' }] },
-    { name: 'Avalanche', symbol: 'AVAX', amount: 12, chains: [{ chain_name: 'AVALANCHE' }] },
-  ]);
+  const [cryptocurrencies, setCryptocurrencies] = useState<DepositCrypto[]>([]);
   const [amount, setAmount] = useState<string>('');
   const [isCryptoDeposit, setIsCryptoDeposit] = useState<boolean>(true);
   const [selectedCrypto, setSelectedCrypto] = useState<DepositCrypto | null>(null);
@@ -36,18 +29,25 @@ const DepositPage = () => {
   const [ethereumSigner, setEthereumSigner] = useState<ethers.Signer | null>(null);
 
   useEffect(() => {
-    const fetchCryptos = async () => {
+    const load = async () => {
       try {
-        await fetchCryptocurrencies();
+        const data = (await fetchCryptocurrencies()) as CryptosResponse;
+        if (data.status === 'success' && data.data?.cryptocurrencies) {
+          setCryptocurrencies(data.data.cryptocurrencies);
+        }
       } catch (error) {
         console.error('Error fetching cryptocurrencies:', error);
+        toast.error('Failed to load cryptocurrencies.');
       }
     };
-    fetchCryptos();
+    void load();
   }, []);
 
   const handleCryptoDeposit = async () => {
-    if (!selectedCrypto) return;
+    if (!selectedCrypto || !selectedChain || !amount) {
+      toast.error('Please select a cryptocurrency, chain, and enter an amount.');
+      return;
+    }
     await depositCrypto(selectedCrypto.symbol, selectedChain, amount, ethereumSigner, undefined);
   };
 
@@ -68,17 +68,13 @@ const DepositPage = () => {
           <div className="flex justify-center gap-8 mb-8">
             <button
               onClick={() => setIsCryptoDeposit(false)}
-              className={`w-1/2 py-3 rounded-lg text-lg font-semibold transition ${
-                !isCryptoDeposit ? 'bg-yellow-500 text-black' : 'bg-gray-700 text-gray-300'
-              }`}
+              className={`w-1/2 py-3 rounded-lg text-lg font-semibold transition ${!isCryptoDeposit ? 'bg-yellow-500 text-black' : 'bg-gray-700 text-gray-300'}`}
             >
               Deposit USD
             </button>
             <button
               onClick={() => setIsCryptoDeposit(true)}
-              className={`w-1/2 py-3 rounded-lg text-lg font-semibold transition ${
-                isCryptoDeposit ? 'bg-yellow-500 text-black' : 'bg-gray-700 text-gray-300'
-              }`}
+              className={`w-1/2 py-3 rounded-lg text-lg font-semibold transition ${isCryptoDeposit ? 'bg-yellow-500 text-black' : 'bg-gray-700 text-gray-300'}`}
             >
               Deposit Crypto
             </button>
@@ -87,16 +83,12 @@ const DepositPage = () => {
           {isCryptoDeposit ? (
             <div className="space-y-6">
               <div className="flex items-center justify-between gap-6">
-                <div className="flex-1 relative group">
-                  <label className="block text-sm font-semibold text-gray-300 mb-2">
-                    Select Crypto
-                  </label>
-                  <div className="relative bg-gray-900 border border-gray-700 rounded-xl p-3 shadow-lg transition-all duration-300 ">
+                <div className="flex-1 relative">
+                  <label className="block text-sm font-semibold text-gray-300 mb-2">Select Crypto</label>
+                  <div className="relative bg-gray-900 border border-gray-700 rounded-xl p-3 shadow-lg">
                     <select
                       onChange={(e) => {
-                        const selected = cryptocurrencies.find(
-                          (t) => t.symbol === e.target.value
-                        );
+                        const selected = cryptocurrencies.find((t) => t.symbol === e.target.value);
                         setSelectedCrypto(selected ?? null);
                         setSelectedChain('');
                       }}
@@ -109,23 +101,13 @@ const DepositPage = () => {
                         </option>
                       ))}
                     </select>
-                    <span className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 transition duration-200">
-                      ▼
-                    </span>
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">▼</span>
                   </div>
                 </div>
 
-                <div className="flex-1 relative group">
-                  <label className="block text-sm font-semibold text-gray-300 mb-2">
-                    Select Chain
-                  </label>
-                  <div
-                    className={`relative border border-gray-700 rounded-xl p-3 shadow-lg transition-all duration-300 ${
-                      selectedCrypto
-                        ? 'bg-gray-900'
-                        : 'bg-gray-800 opacity-50 cursor-not-allowed'
-                    }`}
-                  >
+                <div className="flex-1 relative">
+                  <label className="block text-sm font-semibold text-gray-300 mb-2">Select Chain</label>
+                  <div className={`relative border border-gray-700 rounded-xl p-3 shadow-lg ${selectedCrypto ? 'bg-gray-900' : 'bg-gray-800 opacity-50 cursor-not-allowed'}`}>
                     <select
                       onChange={(e) => setSelectedChain(e.target.value)}
                       disabled={!selectedCrypto}
@@ -138,34 +120,26 @@ const DepositPage = () => {
                         </option>
                       ))}
                     </select>
-                    <span className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 transition duration-200">
-                      ▼
-                    </span>
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">▼</span>
                   </div>
                 </div>
               </div>
 
-              <div className="flex flex-col md:flex-row items-center gap-4 relative">
+              <div className="flex flex-col md:flex-row items-center gap-4">
                 <div className="w-full flex-1">
                   <input
                     type="text"
                     placeholder="Amount to deposit"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    className="w-half px-4 py-3 rounded-lg bg-gray-800 text-white border border-gray-600 focus:ring-2 focus:ring-yellow-400"
+                    className="w-full px-4 py-3 rounded-lg bg-gray-800 text-white border border-gray-600 focus:ring-2 focus:ring-yellow-400"
                   />
                 </div>
-
-                <div className="flex space-x-5 items-center">
-                  <ConnectButton
-                    selectedChain={selectedChain}
-                    setEthereumSigner={setEthereumSigner}
-                  />
-                </div>
+                <ConnectButton selectedChain={selectedChain} setEthereumSigner={setEthereumSigner} />
               </div>
 
               <button
-                onClick={handleCryptoDeposit}
+                onClick={() => void handleCryptoDeposit()}
                 className="w-full py-3 bg-green-500 text-white font-semibold rounded-lg transition hover:bg-green-600 disabled:opacity-50"
                 disabled={!selectedCrypto || !selectedChain || !amount}
               >
@@ -183,8 +157,8 @@ const DepositPage = () => {
               />
               <button
                 onClick={handleUSDDeposit}
-                className="w-full py-3 bg-green-500 text-white font-semibold rounded-lg transition hover:bg-green-600 disabled:opacity-50"
                 disabled={!amount}
+                className="w-full py-3 bg-green-500 text-white font-semibold rounded-lg transition hover:bg-green-600 disabled:opacity-50"
               >
                 Deposit USD
               </button>
@@ -194,10 +168,7 @@ const DepositPage = () => {
       </main>
 
       <footer className="py-6 text-center">
-        <a
-          href="/user-dashboard"
-          className="px-6 py-3 bg-gray-700 text-white font-semibold rounded-lg transition hover:bg-gray-600"
-        >
+        <a href="/user-dashboard" className="px-6 py-3 bg-gray-700 text-white font-semibold rounded-lg transition hover:bg-gray-600">
           Back to Dashboard
         </a>
       </footer>

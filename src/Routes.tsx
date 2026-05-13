@@ -50,7 +50,7 @@ const AppRoutes = () => {
       <Route path="/deposit" element={<DepositPage />} />
       <Route path="/withdraw" element={<WithdrawPage />} />
       <Route path="/chart" element={<TradingChart />} />
-      <Route path="/token" element={<TokenPage />} />
+      <Route path="/token/:symbolA/:symbolB" element={<TokenPage />} />
 
       {/* Forgot Password route */}
       <Route path="/forgot-password" element={<ForgotPassword />} />

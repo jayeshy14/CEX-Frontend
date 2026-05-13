@@ -4,7 +4,6 @@ import type { AxiosError } from 'axios';
 interface PlaceOrderArgs {
   orderType: 'buy' | 'sell';
   orderMode: 'limit' | 'market';
-  userId: string;
   cryptoA: string;
   cryptoB: string;
   amount: string | number;
@@ -30,7 +29,6 @@ export const fetchOrderBook = async (cryptoA: string, cryptoB: string): Promise<
 export const placeOrder = async ({
   orderType,
   orderMode,
-  userId,
   cryptoA,
   cryptoB,
   amount,
@@ -40,13 +38,11 @@ export const placeOrder = async ({
     const response = await axiosInstance.post('/orders/place', {
       type: orderType,
       order_type: orderMode,
-      user_id: userId,
       cryptocurrency_id_A: cryptoA,
       cryptocurrency_id_B: cryptoB,
       amount: parseFloat(String(amount)),
       price: orderMode === 'limit' ? parseFloat(String(price)) : null,
     });
-
     return response.data;
   } catch (error) {
     throw extractMessage(error, 'Error placing order');
