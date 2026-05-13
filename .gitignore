@@ -11,6 +11,12 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.*
+!.env.example
+
+# Claude Code worktrees
+.claude/
 
 # Editor directories and files
 .vscode/*
