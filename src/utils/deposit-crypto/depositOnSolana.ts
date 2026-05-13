@@ -9,6 +9,7 @@ import {
   createTransferCheckedInstruction,
   TOKEN_2022_PROGRAM_ID,
 } from '@solana/spl-token';
+import { toast } from 'react-toastify';
 
 const getTokenDecimals = async (
   connection: Connection,
@@ -37,7 +38,7 @@ export const depositOnSolana = async (
 ): Promise<void> => {
   const solana = window.solana;
   if (!solana) {
-    alert('Phantom Wallet is not installed');
+    toast.error('Phantom Wallet is not installed');
     return;
   }
 
@@ -131,7 +132,7 @@ export const depositOnSolana = async (
         if (err.logs) {
           console.log('Transaction logs:', err.logs);
         }
-        alert('Transaction failed');
+        toast.error('Transaction failed');
       }
     } catch (error) {
       console.error('Transaction failed:', error);

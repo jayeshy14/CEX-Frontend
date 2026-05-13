@@ -15,21 +15,11 @@ interface SortConfig {
 
 interface CryptosResponse {
   status: string;
+  data?: { cryptocurrencies?: Array<{ name: string; symbol: string; current_price: number }> };
 }
 
 const CryptocurrencyPage = () => {
-  const [cryptocurrencies, setCryptocurrencies] = useState<MarketCrypto[]>([
-    { name: 'Ethereum', symbol: 'ETH', price: 2300, change: -1.5 },
-    { name: 'Bitcoin', symbol: 'BTC', price: 92000, change: 2.3 },
-    { name: 'Solana', symbol: 'SOL', price: 200, change: -0.8 },
-    { name: 'Binance Coin', symbol: 'BNB', price: 721, change: 1.2 },
-    { name: 'Polygon', symbol: 'MATIC', price: 0.451, change: -3.4 },
-    { name: 'Cardano', symbol: 'ADA', price: 1, change: 0.9 },
-    { name: 'Dogecoin', symbol: 'DOGE', price: 0.45, change: -0.6 },
-    { name: 'Litecoin', symbol: 'LTC', price: 400, change: 4.1 },
-    { name: 'Chainlink', symbol: 'LINK', price: 23.45, change: -2.0 },
-    { name: 'Avalanche', symbol: 'AVAX', price: 45.32, change: 1.7 },
-  ]);
+  const [cryptocurrencies, setCryptocurrencies] = useState<MarketCrypto[]>([]);
 
   const [selectedCrypto, setSelectedCrypto] = useState<MarketCrypto | null>(null);
   const [tradeAmount, setTradeAmount] = useState<string>('');
@@ -40,8 +30,15 @@ const CryptocurrencyPage = () => {
     const fetchCryptos = async () => {
       try {
         const data = (await fetchCryptocurrencies()) as CryptosResponse;
-        if (data.status === 'success') {
-          // setCryptocurrencies(data.cryptocurrencies);
+        if (data.status === 'success' && data.data?.cryptocurrencies) {
+          setCryptocurrencies(
+            data.data.cryptocurrencies.map((c) => ({
+              name: c.name,
+              symbol: c.symbol,
+              price: c.current_price,
+              change: 0,
+            }))
+          );
         }
       } catch (error) {
         console.error('Error fetching cryptocurrencies:', error);

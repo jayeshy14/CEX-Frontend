@@ -1,4 +1,5 @@
 import { ethers } from 'ethers';
+import { toast } from 'react-toastify';
 import { depositOnEVM } from './depositOnEvm';
 import { depositOnSolana } from './depositOnSolana';
 import { depositCryptoApi } from '../../api/user';
@@ -12,7 +13,7 @@ export const depositCrypto = async (
   userAddress?: string
 ): Promise<void> => {
   if (!selectedCrypto || !selectedChain) {
-    alert('Please select a cryptocurrency and blockchain.');
+    toast.error('Please select a cryptocurrency and blockchain.');
     return;
   }
 
@@ -20,11 +21,9 @@ export const depositCrypto = async (
     const data = await fetchCryptocurrency(selectedCrypto);
     if (!data) return;
 
-    const selectedChainData = data.chains.find(
-      (chain) => chain.chain_name === selectedChain
-    );
+    const selectedChainData = data.chains.find((chain) => chain.chain_name === selectedChain);
     if (!selectedChainData) {
-      alert(`No wallet address found for ${selectedChain}.`);
+      toast.error(`No wallet address found for ${selectedChain}.`);
       return;
     }
 
@@ -33,38 +32,25 @@ export const depositCrypto = async (
 
     let txHash: string | null | undefined;
     if (['ETHEREUM', 'BSC', 'MATIC', 'ARBITRUM ONE'].includes(selectedChain)) {
-      txHash = await depositOnEVM(
-        exchangeWallet,
-        amount,
-        selectedCrypto,
-        selectedChain,
-        tokenAddress
-      );
+      txHash = await depositOnEVM(exchangeWallet, amount, selectedCrypto, selectedChain, tokenAddress);
     } else if (selectedChain === 'SOLANA') {
       await depositOnSolana(exchangeWallet, amount, selectedCrypto, tokenAddress);
-      // depositOnSolana currently logs its own signature; treat as success-on-no-throw.
       txHash = 'solana-tx';
     }
 
     if (!txHash) {
-      alert('Transaction failed or not signed.');
+      toast.error('Transaction failed or not signed.');
       return;
     }
 
-    const depositResult = await depositCryptoApi(
-      userAddress,
-      selectedCrypto,
-      amount,
-      txHash,
-      selectedChain
-    );
+    const depositResult = await depositCryptoApi(userAddress, selectedCrypto, amount, txHash, selectedChain);
     if (depositResult.success) {
-      alert(`Deposit successful on ${selectedChain}!`);
+      toast.success(`Deposit successful on ${selectedChain}!`);
     } else {
-      alert(depositResult.message ?? 'Deposit failed.');
+      toast.error(depositResult.message ?? 'Deposit failed.');
     }
   } catch (error) {
     console.error('Crypto deposit failed:', error);
-    alert('Transaction failed. Please try again.');
+    toast.error('Transaction failed. Please try again.');
   }
 };

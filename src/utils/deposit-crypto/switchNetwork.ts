@@ -1,8 +1,9 @@
 import { ethers } from 'ethers';
+import { toast } from 'react-toastify';
 
 export const switchNetwork = async (chainId: number): Promise<boolean> => {
   if (!window.ethereum) {
-    alert('MetaMask is not installed');
+    toast.error('MetaMask is not installed');
     return false;
   }
 
@@ -15,7 +16,7 @@ export const switchNetwork = async (chainId: number): Promise<boolean> => {
   } catch (error) {
     const err = error as { code?: number };
     if (err.code === 4902) {
-      alert('Network not added to MetaMask. Add it manually.');
+      toast.error('Network not added to MetaMask. Add it manually.');
     } else {
       console.error('Error switching network:', error);
     }

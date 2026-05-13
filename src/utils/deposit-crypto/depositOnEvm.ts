@@ -1,4 +1,5 @@
 import { ethers } from 'ethers';
+import { toast } from 'react-toastify';
 import { switchNetwork } from './switchNetwork';
 import erc20Abi from './erc20Abi.json';
 
@@ -15,7 +16,7 @@ export const depositOnEVM = async (
   tokenAddress: string | undefined
 ): Promise<string | null | undefined> => {
   if (!window.ethereum) {
-    alert('MetaMask is not installed');
+    toast.error('MetaMask is not installed');
     return;
   }
 
@@ -31,9 +32,8 @@ export const depositOnEVM = async (
   };
 
   const selectedChainData = networkMapping[selectedChain];
-
   if (!selectedChainData) {
-    alert(`Unsupported blockchain: ${selectedChain}`);
+    toast.error(`Unsupported blockchain: ${selectedChain}`);
     return;
   }
 
@@ -48,30 +48,26 @@ export const depositOnEVM = async (
   try {
     let tx: ethers.TransactionResponse;
     if (selectedCrypto === nativeToken) {
-      const depositAmount = ethers.parseUnits(amount, 'ether');
       tx = await signer.sendTransaction({
         to: exchangeWallet,
-        value: depositAmount,
+        value: ethers.parseUnits(amount, 'ether'),
       });
     } else {
       if (!tokenAddress) {
-        alert('Invalid token address.');
+        toast.error('Invalid token address.');
         return;
       }
-
       const tokenContract = new ethers.Contract(tokenAddress, erc20Abi, signer);
       const tokenDecimals: bigint = await tokenContract.decimals();
-      const depositAmount = ethers.parseUnits(amount, Number(tokenDecimals));
-
-      tx = await tokenContract.transfer(exchangeWallet, depositAmount);
+      tx = await tokenContract.transfer(exchangeWallet, ethers.parseUnits(amount, Number(tokenDecimals)));
     }
 
     await tx.wait();
-    console.log(`${selectedCrypto} deposit successful on ${selectedChain}, TX Hash: ${tx.hash}`);
+    console.log(`${selectedCrypto} deposit TX: ${tx.hash}`);
     return tx.hash;
   } catch (error) {
     console.error('Transaction failed:', error);
-    alert('Transaction failed.');
+    toast.error('Transaction failed.');
     return null;
   }
 };

@@ -1,6 +1,6 @@
 import { useState, useEffect, ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { fetchUserData } from '../api/user';
+import { fetchUserData, fetchMyWallet, fetchMyOrders } from '../api/user';
 import { fetchCryptocurrencies } from '../api/cryptocurrencies';
 
 interface UserState {
@@ -10,24 +10,23 @@ interface UserState {
 }
 
 interface Token {
-  name: string;
   symbol: string;
   amount: number;
-  price: number;
 }
 
 interface OrderRow {
-  id: number;
-  crypto: string;
+  _id: string;
+  cryptocurrency_id_A: string;
+  cryptocurrency_id_B: string;
   amount: number;
   price: number;
-  date?: string;
+  status: string;
+  created_at?: string;
 }
 
 interface DashboardCrypto {
   name: string;
   symbol: string;
-  amount: number;
   chains: Array<{ chain_name: string }>;
 }
 
@@ -36,103 +35,35 @@ interface SortConfig {
   direction: 'asc' | 'desc';
 }
 
-interface UserDataResponse {
-  status: string;
-  data?: {
-    user?: {
-      first_name?: string;
-      last_name?: string;
-      email?: string;
-    };
-    wallet?: {
-      usd_balance?: number;
-    };
-  };
-}
-
-interface CryptosResponse {
-  status: string;
-  cryptos?: DashboardCrypto[];
-}
-
 const UserDashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
   const [user, setUser] = useState<UserState>({ firstName: '', lastName: '', email: '' });
-  const [usdBalance] = useState<number>(0);
-  const [tokens] = useState<Token[]>([
-    { name: 'Ethereum', symbol: 'ETH', amount: 1.5, price: 2300 },
-    { name: 'Bitcoin', symbol: 'BTC', amount: 0.2, price: 92000 },
-    { name: 'Solana', symbol: 'SOL', amount: 20, price: 200 },
-    { name: 'Binance Coin', symbol: 'BNB', amount: 5, price: 721 },
-    { name: 'Polygon', symbol: 'MATIC', amount: 100, price: 0.451 },
-    { name: 'Cardano', symbol: 'ADA', amount: 250, price: 1 },
-    { name: 'Dogecoin', symbol: 'DOGE', amount: 10000, price: 0.45 },
-    { name: 'Litecoin', symbol: 'LTC', amount: 2, price: 400 },
-    { name: 'Chainlink', symbol: 'LINK', amount: 50, price: 23.45 },
-    { name: 'Avalanche', symbol: 'AVAX', amount: 12, price: 45.32 },
-  ]);
-  const [orderHistory] = useState<OrderRow[]>([
-    { id: 1, crypto: 'BTC', amount: 0.5, price: 50000, date: '01/01/2024' },
-    { id: 2, crypto: 'ETH', amount: 2, price: 2500, date: '02/01/2024' },
-    { id: 3, crypto: 'SOL', amount: 10, price: 150, date: '03/01/2024' },
-    { id: 4, crypto: 'BNB', amount: 3, price: 400, date: '04/01/2024' },
-    { id: 5, crypto: 'ADA', amount: 200, price: 1.2, date: '05/01/2024' },
-    { id: 6, crypto: 'DOGE', amount: 5000, price: 0.3, date: '06/01/2024' },
-    { id: 7, crypto: 'MATIC', amount: 50, price: 2, date: '07/01/2024' },
-    { id: 8, crypto: 'LTC', amount: 5, price: 200, date: '08/01/2024' },
-    { id: 9, crypto: 'LINK', amount: 15, price: 25, date: '09/01/2024' },
-    { id: 10, crypto: 'AVAX', amount: 8, price: 90, date: '10/01/2024' },
-  ]);
-
-  const [openOrders] = useState<OrderRow[]>([
-    { id: 11, crypto: 'BTC', amount: 0.1, price: 60000 },
-    { id: 12, crypto: 'ETH', amount: 3, price: 2400 },
-    { id: 13, crypto: 'SOL', amount: 5, price: 160 },
-    { id: 14, crypto: 'BNB', amount: 2, price: 410 },
-    { id: 15, crypto: 'ADA', amount: 300, price: 1.3 },
-    { id: 16, crypto: 'DOGE', amount: 6000, price: 0.25 },
-    { id: 17, crypto: 'MATIC', amount: 70, price: 1.8 },
-    { id: 18, crypto: 'LTC', amount: 3, price: 190 },
-    { id: 19, crypto: 'LINK', amount: 20, price: 23 },
-    { id: 20, crypto: 'AVAX', amount: 10, price: 85 },
-  ]);
-
-  const [cryptocurrencies, setCryptocurrencies] = useState<DashboardCrypto[]>([
-    { name: 'Ethereum', symbol: 'ETH', amount: 1.5, chains: [{ chain_name: 'ETHEREUM' }, { chain_name: 'SOLANA' }, { chain_name: 'POLYGON' }, { chain_name: 'BSC' }] },
-    { name: 'Bitcoin', symbol: 'BTC', amount: 0.2, chains: [{ chain_name: 'BITCOIN' }] },
-    { name: 'Solana', symbol: 'SOL', amount: 20, chains: [{ chain_name: 'SOLANA' }] },
-    { name: 'Binance Coin', symbol: 'BNB', amount: 5, chains: [{ chain_name: 'BSC' }] },
-    { name: 'Polygon', symbol: 'MATIC', amount: 100, chains: [{ chain_name: 'POLYGON' }] },
-    { name: 'Cardano', symbol: 'ADA', amount: 250, chains: [{ chain_name: 'CARDANO' }] },
-    { name: 'Dogecoin', symbol: 'DOGE', amount: 10000, chains: [{ chain_name: 'DOGECOIN' }] },
-    { name: 'Litecoin', symbol: 'LTC', amount: 2, chains: [{ chain_name: 'LITECOIN' }] },
-    { name: 'Chainlink', symbol: 'LINK', amount: 50, chains: [{ chain_name: 'ETHEREUM' }] },
-    { name: 'Avalanche', symbol: 'AVAX', amount: 12, chains: [{ chain_name: 'AVALANCHE' }] },
-  ]);
+  const [usdBalance, setUsdBalance] = useState<number>(0);
+  const [tokens, setTokens] = useState<Token[]>([]);
+  const [openOrders, setOpenOrders] = useState<OrderRow[]>([]);
+  const [orderHistory, setOrderHistory] = useState<OrderRow[]>([]);
+  const [cryptocurrencies, setCryptocurrencies] = useState<DashboardCrypto[]>([]);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'asc' });
+  const [loading, setLoading] = useState(true);
 
   const handleSort = (key: keyof DashboardCrypto) => {
-    let direction: 'asc' | 'desc' = 'asc';
-    if (sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
+    const direction: 'asc' | 'desc' =
+      sortConfig.key === key && sortConfig.direction === 'asc' ? 'desc' : 'asc';
     setSortConfig({ key, direction });
-
-    const sortedData = [...cryptocurrencies].sort((a, b) => {
-      const av = a[key] as unknown as string | number;
-      const bv = b[key] as unknown as string | number;
-      if (av < bv) return direction === 'asc' ? -1 : 1;
-      if (av > bv) return direction === 'asc' ? 1 : -1;
-      return 0;
-    });
-
-    setCryptocurrencies(sortedData);
+    setCryptocurrencies((prev) =>
+      [...prev].sort((a, b) => {
+        const av = a[key] as unknown as string | number;
+        const bv = b[key] as unknown as string | number;
+        if (av < bv) return direction === 'asc' ? -1 : 1;
+        if (av > bv) return direction === 'asc' ? 1 : -1;
+        return 0;
+      })
+    );
   };
 
-  // Reference handleSort so noUnusedLocals doesn't trip on it
   void handleSort;
 
   useEffect(() => {
@@ -141,48 +72,70 @@ const UserDashboard = () => {
 
     if (!token || !userId) {
       navigate('/login');
-    } else {
-      const getUserData = async () => {
-        try {
-          const data = (await fetchUserData(userId, token)) as UserDataResponse;
+      return;
+    }
 
-          if (data.status === 'success' && data.data?.user) {
-            const userInfo = data.data.user;
+    const load = async () => {
+      try {
+        setLoading(true);
+        const [userData, walletData, ordersData, cryptosData] = await Promise.allSettled([
+          fetchUserData(userId, token),
+          fetchMyWallet(),
+          fetchMyOrders(),
+          fetchCryptocurrencies(),
+        ]);
+
+        if (userData.status === 'fulfilled') {
+          const d = userData.value as { status: string; data?: { user?: { first_name?: string; last_name?: string; email?: string } } };
+          if (d.status === 'success' && d.data?.user) {
             setUser({
-              firstName: userInfo.first_name || '',
-              lastName: userInfo.last_name || '',
-              email: userInfo.email || '',
+              firstName: d.data.user.first_name ?? '',
+              lastName: d.data.user.last_name ?? '',
+              email: d.data.user.email ?? '',
             });
           }
-        } catch (error) {
-          console.error('Error fetching user data:', error);
         }
-      };
 
-      getUserData();
-    }
-  }, [navigate]);
+        if (walletData.status === 'fulfilled') {
+          const d = walletData.value as { status: string; data?: { wallet?: { usd_balance?: number; balances?: Record<string, number> } } };
+          if (d.status === 'success' && d.data?.wallet) {
+            setUsdBalance(d.data.wallet.usd_balance ?? 0);
+            const balances = d.data.wallet.balances ?? {};
+            setTokens(
+              Object.entries(balances)
+                .filter(([, amount]) => amount > 0)
+                .map(([symbol, amount]) => ({ symbol, amount }))
+            );
+          }
+        }
 
-  useEffect(() => {
-    const getCryptocurrencies = async () => {
-      try {
-        const data = (await fetchCryptocurrencies()) as CryptosResponse;
-        if (data.status === 'success') {
-          // setCryptocurrencies(data.cryptos || []);
+        if (ordersData.status === 'fulfilled') {
+          const d = ordersData.value as { status: string; data?: { orders?: OrderRow[] } };
+          if (d.status === 'success' && d.data?.orders) {
+            setOpenOrders(d.data.orders.filter((o) => o.status === 'open'));
+            setOrderHistory(d.data.orders.filter((o) => o.status !== 'open'));
+          }
+        }
+
+        if (cryptosData.status === 'fulfilled') {
+          const d = cryptosData.value as { status: string; cryptos?: DashboardCrypto[] };
+          if (d.status === 'success') {
+            setCryptocurrencies(d.cryptos ?? []);
+          }
         }
       } catch (error) {
-        console.error('Error fetching cryptocurrencies:', error);
+        console.error('Dashboard load error:', error);
+      } finally {
+        setLoading(false);
       }
     };
 
-    getCryptocurrencies();
-  }, []);
+    void load();
+  }, [navigate]);
 
   useEffect(() => {
     const section = location.hash.replace('#', '');
-    if (section) {
-      setActiveSection(section);
-    }
+    if (section) setActiveSection(section);
   }, [location]);
 
   const handleLogout = () => {
@@ -191,14 +144,18 @@ const UserDashboard = () => {
     navigate('/login');
   };
 
-  const handleSectionChange = (section: string) => {
-    setActiveSection(section);
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-black text-white">
+        Loading...
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex bg-black">
       <aside className="w-64 bg-gray-800 text-white p-6 flex flex-col">
-        <a href={'/'} className="text-2xl font-semibold text-yellow-400">
+        <a href="/" className="text-2xl font-semibold text-yellow-400">
           TradeInSec
         </a>
         <nav className="mt-8 flex-1">
@@ -212,7 +169,7 @@ const UserDashboard = () => {
               <li key={item.id}>
                 <a
                   href={`#${item.id}`}
-                  onClick={() => handleSectionChange(item.id)}
+                  onClick={() => setActiveSection(item.id)}
                   className={`block px-4 py-2 rounded transition-colors ${
                     activeSection === item.id
                       ? 'bg-yellow-400 text-black font-bold'
@@ -249,16 +206,10 @@ const UserDashboard = () => {
               <p className="text-2xl font-bold text-white">${usdBalance.toFixed(2)}</p>
             </div>
             <div className="space-x-4">
-              <a
-                href={'/deposit'}
-                className="px-6 py-3 bg-green-600 text-white rounded-lg shadow-md hover:bg-green-700"
-              >
+              <a href="/deposit" className="px-6 py-3 bg-green-600 text-white rounded-lg shadow-md hover:bg-green-700">
                 Deposit
               </a>
-              <a
-                href={'/withdraw'}
-                className="px-6 py-3 bg-red-600 text-white rounded-lg shadow-md hover:bg-red-700"
-              >
+              <a href="/withdraw" className="px-6 py-3 bg-red-600 text-white rounded-lg shadow-md hover:bg-red-700">
                 Withdraw
               </a>
             </div>
@@ -267,8 +218,8 @@ const UserDashboard = () => {
           {activeSection === 'my-tokens' && (
             <SectionContainer title="My Tokens">
               <StyledTable
-                headers={['Token Name', 'Symbol', 'Amount']}
-                data={tokens.map((token) => [token.name, token.symbol, token.amount])}
+                headers={['Symbol', 'Amount']}
+                data={tokens.map((t) => [t.symbol, t.amount])}
               />
             </SectionContainer>
           )}
@@ -276,8 +227,13 @@ const UserDashboard = () => {
           {activeSection === 'open-orders' && (
             <SectionContainer title="Open Orders">
               <StyledTable
-                headers={['Order ID', 'Crypto', 'Amount', 'Price']}
-                data={openOrders.map((order) => [order.id, order.crypto, order.amount, order.price])}
+                headers={['Pair', 'Amount', 'Price', 'Status']}
+                data={openOrders.map((o) => [
+                  `${String(o.cryptocurrency_id_A)}/${String(o.cryptocurrency_id_B)}`,
+                  o.amount,
+                  o.price,
+                  o.status,
+                ])}
               />
             </SectionContainer>
           )}
@@ -285,13 +241,13 @@ const UserDashboard = () => {
           {activeSection === 'order-history' && (
             <SectionContainer title="Order History">
               <StyledTable
-                headers={['Order ID', 'Crypto', 'Amount', 'Price', 'Date']}
-                data={orderHistory.map((order) => [
-                  order.id,
-                  order.crypto,
-                  order.amount,
-                  order.price,
-                  order.date ?? '',
+                headers={['Pair', 'Amount', 'Price', 'Status', 'Date']}
+                data={orderHistory.map((o) => [
+                  `${String(o.cryptocurrency_id_A)}/${String(o.cryptocurrency_id_B)}`,
+                  o.amount,
+                  o.price,
+                  o.status,
+                  o.created_at ? new Date(o.created_at).toLocaleDateString() : '',
                 ])}
               />
             </SectionContainer>
@@ -336,7 +292,7 @@ const StyledTable = ({ headers, data }: StyledTableProps) => (
         <thead>
           <tr className="text-gray-400 bg-gray-800 border-b border-gray-700">
             {headers.map((header, index) => (
-              <th key={index} className="px-4 py-3 text-left cursor-pointer">
+              <th key={index} className="px-4 py-3 text-left">
                 {header}
               </th>
             ))}
@@ -355,10 +311,7 @@ const StyledTable = ({ headers, data }: StyledTableProps) => (
             ))
           ) : (
             <tr>
-              <td
-                colSpan={headers.length}
-                className="px-4 py-3 text-center text-gray-400"
-              >
+              <td colSpan={headers.length} className="px-4 py-3 text-center text-gray-400">
                 No data available
               </td>
             </tr>

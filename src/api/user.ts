@@ -72,6 +72,24 @@ export const fetchUserData = async (userId: string, _token?: string): Promise<un
   }
 };
 
+export const fetchMyWallet = async (): Promise<unknown> => {
+  try {
+    const response = await axiosInstance.get('/wallets/me');
+    return response.data;
+  } catch (error) {
+    throw extractMessage(error, 'Error fetching wallet');
+  }
+};
+
+export const fetchMyOrders = async (): Promise<unknown> => {
+  try {
+    const response = await axiosInstance.get('/orders/my');
+    return response.data;
+  } catch (error) {
+    throw extractMessage(error, 'Error fetching orders');
+  }
+};
+
 export const depositCryptoApi = async (
   userAddress: string | undefined,
   selectedCrypto: string,
