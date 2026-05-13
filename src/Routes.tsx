@@ -1,63 +1,50 @@
-import { Routes, Route } from "react-router-dom";
-import HomePage from "./pages/HomePage";
-import CryptocurrenciesPage from "./pages/CryptocurrenciesPage";
-import UserDashboard from "./pages/UserDashboard";
-import LoginPage from "./pages/Login";
-import RegisterPage from "./pages/Register";
-import AdminPanel from "./pages/AdminPanel";
-import Footer from "./components/Footer";
-import Header from "./components/Header";
-import ProtectedRoute from "./components/ProtectedRoute";
-import AdminRoute from "./components/AdminRoute";
-import DepositPage from "./pages/DepositPage";
-import WithdrawPage from "./pages/WithdrawPage";
-import TokenPage from "./pages/TokenPage";
-import TradingChart from "./pages/TradingChart";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
+import { Routes, Route } from 'react-router-dom';
+import Layout from './components/Layout';
+import Header from './components/Header';
+import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
+import HomePage from './pages/HomePage';
+import CryptocurrenciesPage from './pages/CryptocurrenciesPage';
+import LoginPage from './pages/Login';
+import RegisterPage from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import UserDashboard from './pages/UserDashboard';
+import AdminPanel from './pages/AdminPanel';
+import DepositPage from './pages/DepositPage';
+import WithdrawPage from './pages/WithdrawPage';
+import TokenPage from './pages/TokenPage';
+import TradingChart from './pages/TradingChart';
 
-const AppRoutes = () => {
-  return (
-    <Routes>
-      <Route
-        path="/"
-        element={
-          <>
-            <Header />
-            <HomePage />
-            <Footer />
-          </>
-        }
-      />
-      <Route
-        path="/cryptocurrencies"
-        element={
-          <>
-            <Header />
-            <CryptocurrenciesPage />
-            <Footer />
-          </>
-        }
-      />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
+const AppRoutes = () => (
+  <Routes>
+    {/* Public pages with header + footer */}
+    <Route path="/" element={<Layout><HomePage /></Layout>} />
+    <Route path="/cryptocurrencies" element={<Layout><CryptocurrenciesPage /></Layout>} />
+    <Route path="/deposit" element={<Layout><DepositPage /></Layout>} />
+    <Route path="/withdraw" element={<Layout><WithdrawPage /></Layout>} />
 
-      {/* Protected routes */}
-      <Route
-        path="/user-dashboard"
-        element={<ProtectedRoute element={<UserDashboard />} />}
-      />
-      <Route path="/admin" element={<AdminRoute element={<AdminPanel />} />} />
-      <Route path="/deposit" element={<DepositPage />} />
-      <Route path="/withdraw" element={<WithdrawPage />} />
-      <Route path="/chart" element={<TradingChart />} />
-      <Route path="/token/:symbolA/:symbolB" element={<TokenPage />} />
+    {/* Auth pages — full-screen, no chrome */}
+    <Route path="/login" element={<LoginPage />} />
+    <Route path="/register" element={<RegisterPage />} />
+    <Route path="/forgot-password" element={<ForgotPassword />} />
+    <Route path="/reset-password/:token" element={<ResetPassword />} />
 
-      {/* Forgot Password route */}
-      <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/reset-password/:token" element={<ResetPassword />} />
-    </Routes>
-  );
-};
+    {/* Trading page — header only, no footer (fills viewport) */}
+    <Route path="/token/:symbolA/:symbolB" element={
+      <div className="flex flex-col min-h-screen bg-bg">
+        <Header />
+        <TokenPage />
+      </div>
+    } />
+
+    {/* Legacy chart route — redirects to ETH/USDT */}
+    <Route path="/chart" element={<TradingChart />} />
+
+    {/* Protected — own full-page layouts */}
+    <Route path="/user-dashboard" element={<ProtectedRoute element={<UserDashboard />} />} />
+    <Route path="/admin" element={<AdminRoute element={<AdminPanel />} />} />
+  </Routes>
+);
 
 export default AppRoutes;

@@ -1,30 +1,21 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { Shield, Plus, Trash2, X } from 'lucide-react';
+import { toast } from 'react-toastify';
 import { addCrypto, removeCrypto } from '../api/admin';
 import { fetchCryptocurrencies } from '../api/cryptocurrencies';
 
-interface Crypto {
-  _id: string;
-  name: string;
-  symbol: string;
-  current_price: number;
-}
+interface Crypto { _id: string; name: string; symbol: string; current_price: number; }
+interface FetchResponse { status: string; data?: { cryptocurrencies: Crypto[] }; }
 
-interface NewCryptoForm {
-  name: string;
-  symbol: string;
-  current_price: string;
-}
-
-interface FetchResponse {
-  status: string;
-  data?: { cryptocurrencies: Crypto[] };
-}
+const inputCls = 'w-full bg-bg border border-border rounded-lg px-4 py-2.5 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent transition-colors';
+const labelCls = 'block text-text-secondary text-xs mb-1.5';
 
 const AdminPanel = () => {
   const [cryptos, setCryptos] = useState<Crypto[]>([]);
-  const [newCrypto, setNewCrypto] = useState<NewCryptoForm>({ name: '', symbol: '', current_price: '' });
-  const [isAddingCrypto, setIsAddingCrypto] = useState(false);
-  const [error, setError] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [newCrypto, setNewCrypto] = useState({ name: '', symbol: '', current_price: '' });
+  const [loading, setLoading] = useState(false);
 
   const loadCryptos = async () => {
     try {
@@ -32,139 +23,154 @@ const AdminPanel = () => {
       if (data.status === 'success' && data.data?.cryptocurrencies) {
         setCryptos(data.data.cryptocurrencies);
       }
-    } catch {
-      console.error('Failed to load cryptocurrencies');
-    }
+    } catch { toast.error('Failed to load cryptocurrencies'); }
   };
 
-  useEffect(() => { loadCryptos(); }, []);
+  useEffect(() => { void loadCryptos(); }, []);
 
-  const handleAddCrypto = async () => {
-    setError('');
+  const handleAdd = async () => {
+    if (!newCrypto.name || !newCrypto.symbol || !newCrypto.current_price) {
+      toast.error('Fill in all fields'); return;
+    }
+    setLoading(true);
     try {
       const result = (await addCrypto({
         name: newCrypto.name,
-        symbol: newCrypto.symbol,
+        symbol: newCrypto.symbol.toUpperCase(),
         current_price: parseFloat(newCrypto.current_price),
       })) as { status?: string };
-
       if (result?.status === 'success') {
-        await loadCryptos();
+        toast.success(`${newCrypto.symbol.toUpperCase()} added`);
         setNewCrypto({ name: '', symbol: '', current_price: '' });
-        setIsAddingCrypto(false);
+        setShowModal(false);
+        await loadCryptos();
       }
     } catch (err) {
-      setError(typeof err === 'string' ? err : 'Failed to add cryptocurrency');
-    }
+      toast.error(typeof err === 'string' ? err : 'Failed to add');
+    } finally { setLoading(false); }
   };
 
-  const handleRemoveCrypto = async (symbol: string) => {
-    setError('');
+  const handleRemove = async (symbol: string) => {
     try {
       await removeCrypto(symbol);
+      toast.success(`${symbol} removed`);
       await loadCryptos();
     } catch (err) {
-      setError(typeof err === 'string' ? err : 'Failed to remove cryptocurrency');
+      toast.error(typeof err === 'string' ? err : 'Failed to remove');
     }
   };
 
   return (
-    <div className="min-h-screen flex bg-black">
-      <aside className="w-64 bg-gray-800 text-white p-6 flex flex-col">
-        <h2 className="text-2xl font-semibold text-yellow-400">Admin Panel</h2>
-        <nav className="mt-8 flex-1">
-          <ul className="space-y-4">
-            <li>
-              <a href="#cryptos" className="block px-4 py-2 rounded hover:text-yellow-400">
-                Cryptocurrencies
-              </a>
-            </li>
-          </ul>
+    <div className="flex min-h-screen bg-bg">
+      {/* Sidebar */}
+      <aside className="w-52 bg-bg-surface border-r border-border flex flex-col shrink-0 sticky top-0 h-screen">
+        <div className="p-6 border-b border-border">
+          <Link to="/" className="text-accent font-bold text-lg">TradeInSec</Link>
+          <div className="flex items-center gap-1.5 mt-2">
+            <Shield size={12} className="text-sell" />
+            <span className="text-sell text-xs font-medium">Admin</span>
+          </div>
+        </div>
+        <nav className="flex-1 p-3">
+          <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium bg-accent-muted text-accent">
+            Cryptocurrencies
+          </button>
         </nav>
       </aside>
 
-      <div className="flex-1 bg-gray-900 p-8 overflow-auto">
-        <h2 id="cryptos" className="text-3xl font-semibold text-yellow-400 text-center">
-          Listed Cryptocurrencies
-        </h2>
-        {error && <p className="text-red-500 text-center mt-2">{error}</p>}
-        <div className="flex justify-between mt-6">
+      {/* Main */}
+      <div className="flex-1 p-8 overflow-auto">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-text-primary">Cryptocurrencies</h1>
+            <p className="text-text-secondary text-sm mt-0.5">{cryptos.length} assets listed</p>
+          </div>
           <button
-            onClick={() => setIsAddingCrypto(true)}
-            className="px-4 py-2 bg-yellow-400 text-black rounded-md hover:bg-yellow-500"
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 bg-accent hover:bg-accent-hover text-bg font-semibold px-4 py-2.5 rounded-xl text-sm transition-colors"
           >
-            Add Crypto
+            <Plus size={15} /> Add Asset
           </button>
         </div>
 
-        <table className="min-w-full bg-gray-800 border border-gray-700 rounded-lg shadow-sm mt-6">
-          <thead>
-            <tr className="text-gray-300 bg-gray-700">
-              <th className="px-4 py-3 text-left">Name</th>
-              <th className="px-4 py-3 text-left">Symbol</th>
-              <th className="px-4 py-3 text-left">Price (USD)</th>
-              <th className="px-4 py-3 text-left">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {cryptos.map((crypto) => (
-              <tr key={crypto._id} className="border-b border-gray-700 text-white">
-                <td className="px-4 py-3">{crypto.name}</td>
-                <td className="px-4 py-3">{crypto.symbol}</td>
-                <td className="px-4 py-3">${crypto.current_price.toLocaleString()}</td>
-                <td className="px-4 py-3">
-                  <button
-                    onClick={() => handleRemoveCrypto(crypto.symbol)}
-                    className="text-red-500 hover:text-red-700"
-                  >
-                    Remove
-                  </button>
-                </td>
+        <div className="bg-bg-surface border border-border rounded-xl overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-bg-elevated text-text-secondary text-xs uppercase">
+                <th className="px-6 py-3 text-left">Asset</th>
+                <th className="px-6 py-3 text-left">Symbol</th>
+                <th className="px-6 py-3 text-right">Price (USD)</th>
+                <th className="px-6 py-3 text-right">Action</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {cryptos.length === 0 ? (
+                <tr><td colSpan={4} className="px-6 py-16 text-center text-text-muted">No assets yet</td></tr>
+              ) : (
+                cryptos.map((c) => (
+                  <tr key={c._id} className="border-t border-border hover:bg-bg-elevated/50">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-bg-elevated flex items-center justify-center text-xs font-bold text-accent">
+                          {c.symbol.slice(0, 2)}
+                        </div>
+                        <span className="text-text-primary font-medium">{c.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-text-secondary font-mono">{c.symbol}</td>
+                    <td className="px-6 py-4 text-right font-mono text-text-primary">
+                      ${c.current_price < 0.01
+                        ? c.current_price.toFixed(8)
+                        : c.current_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button
+                        onClick={() => void handleRemove(c.symbol)}
+                        className="flex items-center gap-1.5 text-sell hover:text-sell-hover text-xs font-medium ml-auto transition-colors"
+                      >
+                        <Trash2 size={13} /> Remove
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {isAddingCrypto && (
-        <div className="fixed inset-0 flex justify-center items-center bg-gray-700 bg-opacity-75">
-          <div className="bg-gray-800 p-6 rounded-lg shadow-xl text-yellow-400 w-96">
-            <h3 className="text-xl font-bold mb-4">Add New Cryptocurrency</h3>
-
-            <input
-              type="text"
-              placeholder="Name"
-              value={newCrypto.name}
-              onChange={(e) => setNewCrypto({ ...newCrypto, name: e.target.value })}
-              className="px-4 py-2 bg-gray-700 border border-yellow-500 rounded mb-4 w-full text-yellow-400 placeholder-yellow-500"
-            />
-            <input
-              type="text"
-              placeholder="Symbol (e.g. BTC)"
-              value={newCrypto.symbol}
-              onChange={(e) => setNewCrypto({ ...newCrypto, symbol: e.target.value })}
-              className="px-4 py-2 bg-gray-700 border border-yellow-500 rounded mb-4 w-full text-yellow-400 placeholder-yellow-500"
-            />
-            <input
-              type="number"
-              placeholder="Current Price (USD)"
-              value={newCrypto.current_price}
-              onChange={(e) => setNewCrypto({ ...newCrypto, current_price: e.target.value })}
-              className="px-4 py-2 bg-gray-700 border border-yellow-500 rounded mb-4 w-full text-yellow-400 placeholder-yellow-500"
-            />
-
-            <button
-              onClick={handleAddCrypto}
-              className="px-4 py-2 bg-yellow-500 text-gray-900 rounded w-full"
-            >
-              Add
-            </button>
-            <button
-              onClick={() => setIsAddingCrypto(false)}
-              className="px-4 py-2 bg-gray-600 text-yellow-400 rounded w-full mt-4"
-            >
-              Close
-            </button>
+      {/* Add Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4">
+          <div className="bg-bg-surface border border-border rounded-xl p-6 w-full max-w-sm">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-text-primary font-semibold">Add New Asset</h2>
+              <button onClick={() => setShowModal(false)} className="text-text-muted hover:text-text-primary">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className={labelCls}>Name</label>
+                <input type="text" placeholder="Bitcoin" value={newCrypto.name} onChange={(e) => setNewCrypto({ ...newCrypto, name: e.target.value })} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Symbol</label>
+                <input type="text" placeholder="BTC" value={newCrypto.symbol} onChange={(e) => setNewCrypto({ ...newCrypto, symbol: e.target.value })} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Current Price (USD)</label>
+                <input type="number" placeholder="95000" value={newCrypto.current_price} onChange={(e) => setNewCrypto({ ...newCrypto, current_price: e.target.value })} className={inputCls} />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button onClick={() => setShowModal(false)} className="flex-1 py-2.5 rounded-xl text-sm font-medium text-text-secondary border border-border hover:bg-bg-elevated transition-colors">
+                  Cancel
+                </button>
+                <button onClick={() => void handleAdd()} disabled={loading} className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-accent hover:bg-accent-hover text-bg transition-colors disabled:opacity-40">
+                  {loading ? 'Adding…' : 'Add'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

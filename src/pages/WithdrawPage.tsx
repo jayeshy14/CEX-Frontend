@@ -1,181 +1,113 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
+import { ArrowUpFromLine } from 'lucide-react';
 import { fetchMyWallet } from '../api/user';
 import axiosInstance from '../api/axios';
 
-interface TokenBalance {
-  symbol: string;
-  amount: number;
-}
+interface TokenBalance { symbol: string; amount: number; }
+
+const inputCls = 'w-full bg-bg border border-border rounded-lg px-4 py-2.5 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent transition-colors';
+const labelCls = 'block text-text-secondary text-xs mb-1.5';
 
 const WithdrawPage = () => {
   const [tokens, setTokens] = useState<TokenBalance[]>([]);
-  const [usdBalance, setUsdBalance] = useState<number>(0);
-  const [amount, setAmount] = useState<string>('');
-  const [toAddress, setToAddress] = useState<string>('');
-  const [selectedSymbol, setSelectedSymbol] = useState<string>('');
-  const [chainName, setChainName] = useState<string>('');
-  const [isCryptoWithdraw, setIsCryptoWithdraw] = useState<boolean>(true);
+  const [usdBalance, setUsdBalance] = useState(0);
+  const [isCrypto, setIsCrypto] = useState(true);
+  const [selectedSymbol, setSelectedSymbol] = useState('');
+  const [chainName, setChainName] = useState('');
+  const [toAddress, setToAddress] = useState('');
+  const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const data = (await fetchMyWallet()) as {
-          status: string;
-          data?: { wallet?: { usd_balance?: number; balances?: Record<string, number> } };
-        };
+        const data = (await fetchMyWallet()) as { status: string; data?: { wallet?: { usd_balance?: number; balances?: Record<string, number> } } };
         if (data.status === 'success' && data.data?.wallet) {
           setUsdBalance(data.data.wallet.usd_balance ?? 0);
-          const balances = data.data.wallet.balances ?? {};
-          setTokens(
-            Object.entries(balances)
-              .filter(([, amt]) => amt > 0)
-              .map(([symbol, amt]) => ({ symbol, amount: amt }))
-          );
+          setTokens(Object.entries(data.data.wallet.balances ?? {}).filter(([, v]) => v > 0).map(([symbol, amount]) => ({ symbol, amount })));
         }
-      } catch (error) {
-        console.error('Error fetching wallet:', error);
-      }
+      } catch { console.error('Failed to load wallet'); }
     };
     void load();
   }, []);
 
-  const handleCryptoWithdraw = async () => {
+  const handleWithdraw = async () => {
     if (!selectedSymbol || !toAddress || !amount || !chainName) {
-      toast.error('Please fill in all fields.');
+      toast.error('Please fill in all fields');
       return;
     }
-
-    const amountNum = parseFloat(amount);
+    const amtNum = parseFloat(amount);
     const token = tokens.find((t) => t.symbol === selectedSymbol);
-    if (!token || amountNum > token.amount) {
-      toast.error('Insufficient balance.');
+    if (!token || amtNum > token.amount) {
+      toast.error('Insufficient balance');
       return;
     }
-
     setLoading(true);
     try {
-      await axiosInstance.post('/withdrawals/withdraw', {
-        toAddress,
-        amount: amountNum,
-        symbol: selectedSymbol,
-        chainName,
-      });
-      toast.success(`Withdrawal of ${amount} ${selectedSymbol} submitted.`);
-      setAmount('');
-      setToAddress('');
-    } catch (error) {
-      console.error('Withdrawal failed:', error);
-      toast.error('Withdrawal failed. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleUSDWithdraw = () => {
-    toast.info('USD withdrawal is not yet available.');
+      await axiosInstance.post('/withdrawals/withdraw', { toAddress, amount: amtNum, symbol: selectedSymbol, chainName });
+      toast.success(`Withdrawal of ${amount} ${selectedSymbol} submitted`);
+      setAmount(''); setToAddress('');
+    } catch { toast.error('Withdrawal failed'); }
+    finally { setLoading(false); }
   };
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col">
-      <header className="bg-gray-900 py-6 shadow-md">
-        <div className="max-w-6xl mx-auto px-6">
-          <h1 className="text-4xl text-center font-bold text-yellow-400">Withdraw Funds</h1>
-        </div>
-      </header>
-
-      <main className="flex-1 flex flex-col items-center justify-center px-6">
-        <div className="w-full max-w-4xl bg-gray-900 p-8 rounded-lg shadow-lg">
-          <div className="flex justify-center gap-8 mb-8">
-            <button
-              onClick={() => setIsCryptoWithdraw(false)}
-              className={`w-1/2 py-3 rounded-lg text-lg font-semibold transition ${!isCryptoWithdraw ? 'bg-yellow-500 text-black' : 'bg-gray-700 text-gray-300'}`}
-            >
-              Withdraw USD
-            </button>
-            <button
-              onClick={() => setIsCryptoWithdraw(true)}
-              className={`w-1/2 py-3 rounded-lg text-lg font-semibold transition ${isCryptoWithdraw ? 'bg-yellow-500 text-black' : 'bg-gray-700 text-gray-300'}`}
-            >
-              Withdraw Crypto
-            </button>
+    <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center px-4 py-12">
+      <div className="w-full max-w-md">
+        <div className="flex items-center gap-3 mb-8">
+          <div className="w-10 h-10 rounded-xl bg-sell-muted flex items-center justify-center">
+            <ArrowUpFromLine size={20} className="text-sell" />
           </div>
+          <div>
+            <h1 className="text-xl font-bold text-text-primary">Withdraw Funds</h1>
+            <p className="text-text-secondary text-sm">Send funds from your trading account</p>
+          </div>
+        </div>
 
-          {isCryptoWithdraw ? (
-            <div className="space-y-6">
-              <p className="text-gray-400 text-sm">USD Balance: ${usdBalance.toFixed(2)}</p>
+        <div className="flex bg-bg-elevated rounded-xl p-1 mb-6">
+          <button onClick={() => setIsCrypto(true)} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${isCrypto ? 'bg-bg-surface text-text-primary shadow' : 'text-text-secondary hover:text-text-primary'}`}>Crypto</button>
+          <button onClick={() => setIsCrypto(false)} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${!isCrypto ? 'bg-bg-surface text-text-primary shadow' : 'text-text-secondary hover:text-text-primary'}`}>USD</button>
+        </div>
 
-              <select
-                onChange={(e) => setSelectedSymbol(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg bg-gray-800 text-white border border-gray-600 focus:ring-2 focus:ring-yellow-400"
-              >
-                <option value="">-- Select Token --</option>
-                {tokens.map((t) => (
-                  <option key={t.symbol} value={t.symbol}>
-                    {t.symbol} (Balance: {t.amount})
-                  </option>
-                ))}
-              </select>
-
-              <input
-                type="text"
-                placeholder="Destination chain (e.g. Ethereum)"
-                value={chainName}
-                onChange={(e) => setChainName(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg bg-gray-800 text-white border border-gray-600 focus:ring-2 focus:ring-yellow-400"
-              />
-
-              <input
-                type="text"
-                placeholder="Destination address"
-                value={toAddress}
-                onChange={(e) => setToAddress(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg bg-gray-800 text-white border border-gray-600 focus:ring-2 focus:ring-yellow-400"
-              />
-
-              <input
-                type="text"
-                placeholder="Amount to withdraw"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg bg-gray-800 text-white border border-gray-600 focus:ring-2 focus:ring-yellow-400"
-              />
-
+        <div className="bg-bg-surface border border-border rounded-xl p-6 space-y-4">
+          {isCrypto ? (
+            <>
+              <div>
+                <label className={labelCls}>Select Asset</label>
+                <select className={inputCls} onChange={(e) => setSelectedSymbol(e.target.value)}>
+                  <option value="">— Select asset —</option>
+                  {tokens.map((t) => <option key={t.symbol} value={t.symbol}>{t.symbol} (Balance: {t.amount})</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Destination Chain</label>
+                <input type="text" placeholder="e.g. Ethereum" value={chainName} onChange={(e) => setChainName(e.target.value)} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Destination Address</label>
+                <input type="text" placeholder="0x..." value={toAddress} onChange={(e) => setToAddress(e.target.value)} className={`${inputCls} font-mono text-xs`} />
+              </div>
+              <div>
+                <label className={labelCls}>Amount</label>
+                <input type="number" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} className={inputCls} />
+              </div>
+              <p className="text-text-muted text-xs">USD Balance: ${usdBalance.toFixed(2)}</p>
               <button
-                onClick={() => void handleCryptoWithdraw()}
+                onClick={() => void handleWithdraw()}
                 disabled={!selectedSymbol || !toAddress || !amount || !chainName || loading}
-                className="w-full py-3 bg-red-500 text-white font-semibold rounded-lg transition hover:bg-red-600 disabled:opacity-50"
+                className="w-full bg-sell hover:bg-sell-hover text-white font-semibold py-3 rounded-xl text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {loading ? 'Processing...' : 'Withdraw Crypto'}
+                {loading ? 'Processing…' : `Withdraw ${selectedSymbol || 'Crypto'}`}
               </button>
-            </div>
+            </>
           ) : (
-            <div className="space-y-6">
-              <input
-                type="number"
-                placeholder="Amount to withdraw"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg bg-gray-800 text-white border border-gray-600 focus:ring-2 focus:ring-yellow-400"
-              />
-              <button
-                onClick={handleUSDWithdraw}
-                disabled={!amount}
-                className="w-full py-3 bg-red-500 text-white font-semibold rounded-lg transition hover:bg-red-600 disabled:opacity-50"
-              >
-                Withdraw USD
-              </button>
+            <div className="py-8 text-center">
+              <p className="text-text-secondary text-sm">USD withdrawals are coming soon.</p>
             </div>
           )}
         </div>
-      </main>
-
-      <footer className="py-6 text-center">
-        <a href="/user-dashboard" className="px-6 py-3 bg-gray-700 text-white font-semibold rounded-lg transition hover:bg-gray-600">
-          Back to Dashboard
-        </a>
-      </footer>
+      </div>
     </div>
   );
 };

@@ -1,97 +1,95 @@
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import axiosInstance from '../api/axios';
+
+const inputCls = 'w-full bg-bg border border-border rounded-lg px-4 py-2.5 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent transition-colors';
+const labelCls = 'block text-text-secondary text-xs mb-1.5';
 
 const ResetPassword = () => {
   const { token } = useParams<{ token: string }>();
-  const [password, setPassword] = useState<string>('');
-  const [confirmPassword, setConfirmPassword] = useState<string>('');
-  const [error, setError] = useState<string>('');
-  const [message, setMessage] = useState<string>('');
   const navigate = useNavigate();
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
-    if (!password || !confirmPassword) {
-      setError('Please fill in both password fields');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-
+    if (password !== confirmPassword) { setError('Passwords do not match'); return; }
+    setLoading(true);
+    setError('');
     try {
-      const response = await axiosInstance.post<{ message?: string }>(
-        `/users/reset-password/${token}`,
-        { password }
-      );
-
-      if (response.status === 200) {
-        setMessage('Password reset successfully. You can now login.');
-        setTimeout(() => navigate('/login'), 3000);
-      } else {
-        setError(response.data?.message || 'An error occurred. Please try again.');
-      }
-    } catch (err) {
-      setError('An error occurred. Please try again.');
-      console.error(err);
+      await axiosInstance.post(`/users/reset-password/${token}`, { password });
+      setDone(true);
+      setTimeout(() => navigate('/login'), 3000);
+    } catch {
+      setError('Reset failed. The link may be expired.');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-black">
-      <div className="p-8 rounded-lg shadow-lg w-full max-w-md bg-gray-800">
-        <h2 className="text-3xl text-yellow-400 font-bold mb-6 text-center">Reset Password</h2>
+    <div className="min-h-screen bg-bg flex items-center justify-center px-4">
+      <div className="w-full max-w-sm">
+        <div className="mb-8 text-center">
+          <Link to="/" className="text-accent font-bold text-2xl">TradeInSec</Link>
+          <p className="text-text-secondary text-sm mt-2">Set a new password</p>
+        </div>
 
-        {message && <p className="text-green-500 text-sm mb-4 text-center">{message}</p>}
-        {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
-
-        <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label className="block text-gray-300 text-sm font-medium mb-1" htmlFor="password">
-              New Password
-            </label>
-            <input
-              type="password"
-              id="password"
-              className="w-full px-4 py-2 border border-gray-600 bg-gray-700 text-white rounded-md focus:ring focus:ring-yellow-500 focus:outline-none"
-              value={password}
-              placeholder="Enter new password"
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="mb-4">
-            <label
-              className="block text-gray-300 text-sm font-medium mb-1"
-              htmlFor="confirmPassword"
-            >
-              Confirm Password
-            </label>
-            <input
-              type="password"
-              id="confirmPassword"
-              className="w-full px-4 py-2 border border-gray-600 bg-gray-700 text-white rounded-md focus:ring focus:ring-yellow-500 focus:outline-none"
-              value={confirmPassword}
-              placeholder="Confirm new password"
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="text-center">
-            <button
-              type="submit"
-              className="w-full text-white bg-gradient-to-br from-yellow-500 to-yellow-600 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-yellow-500 font-medium rounded-lg text-sm px-5 py-2.5 text-center mb-4"
-            >
-              Reset Password
-            </button>
-          </div>
-        </form>
+        <div className="bg-bg-surface border border-border rounded-xl p-8">
+          {done ? (
+            <div className="text-center py-4">
+              <div className="w-12 h-12 rounded-full bg-buy-muted flex items-center justify-center mx-auto mb-4">
+                <span className="text-buy text-xl">✓</span>
+              </div>
+              <p className="text-text-primary font-medium mb-2">Password updated</p>
+              <p className="text-text-secondary text-sm">Redirecting you to sign in…</p>
+            </div>
+          ) : (
+            <>
+              {error && (
+                <div className="bg-sell-muted border border-sell/30 text-sell text-sm rounded-lg px-4 py-3 mb-6">
+                  {error}
+                </div>
+              )}
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div>
+                  <label className={labelCls} htmlFor="password">New Password</label>
+                  <input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className={inputCls}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className={labelCls} htmlFor="confirmPassword">Confirm Password</label>
+                  <input
+                    id="confirmPassword"
+                    type="password"
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className={inputCls}
+                    required
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-accent hover:bg-accent-hover text-bg font-semibold py-3 rounded-xl text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {loading ? 'Updating…' : 'Update Password'}
+                </button>
+              </form>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

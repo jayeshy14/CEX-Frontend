@@ -1,198 +1,142 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Search } from 'lucide-react';
 import { fetchCryptocurrencies } from '../api/cryptocurrencies';
 
-interface MarketCrypto {
+interface Crypto {
+  _id: string;
   name: string;
   symbol: string;
-  price: number;
-  change: number;
+  current_price: number;
 }
 
-interface SortConfig {
-  key: keyof MarketCrypto | null;
-  direction: 'asc' | 'desc';
-}
-
-interface CryptosResponse {
+interface FetchResponse {
   status: string;
-  data?: { cryptocurrencies?: Array<{ name: string; symbol: string; current_price: number }> };
+  data?: { cryptocurrencies: Crypto[] };
 }
 
-const CryptocurrencyPage = () => {
+const CryptocurrenciesPage = () => {
   const navigate = useNavigate();
-  const [cryptocurrencies, setCryptocurrencies] = useState<MarketCrypto[]>([]);
-
-  const [selectedCrypto, setSelectedCrypto] = useState<MarketCrypto | null>(null);
-  const [selectedQuote, setSelectedQuote] = useState<string>('');
-  const [tradeAmount, setTradeAmount] = useState<string>('');
-  const [isTradeOpen, setIsTradeOpen] = useState<boolean>(false);
-  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: null, direction: 'asc' });
+  const [cryptos, setCryptos] = useState<Crypto[]>([]);
+  const [query, setQuery] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchCryptos = async () => {
+    const load = async () => {
       try {
-        const data = (await fetchCryptocurrencies()) as CryptosResponse;
+        const data = (await fetchCryptocurrencies()) as FetchResponse;
         if (data.status === 'success' && data.data?.cryptocurrencies) {
-          setCryptocurrencies(
-            data.data.cryptocurrencies.map((c) => ({
-              name: c.name,
-              symbol: c.symbol,
-              price: c.current_price,
-              change: 0,
-            }))
-          );
+          setCryptos(data.data.cryptocurrencies);
         }
-      } catch (error) {
-        console.error('Error fetching cryptocurrencies:', error);
+      } catch {
+        // silent
+      } finally {
+        setLoading(false);
       }
     };
-
-    fetchCryptos();
+    void load();
   }, []);
 
-  const handleSort = (key: keyof MarketCrypto) => {
-    let direction: 'asc' | 'desc' = 'asc';
-    if (sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    setSortConfig({ key, direction });
+  const filtered = cryptos.filter(
+    (c) =>
+      c.name.toLowerCase().includes(query.toLowerCase()) ||
+      c.symbol.toLowerCase().includes(query.toLowerCase())
+  );
 
-    const sortedData = [...cryptocurrencies].sort((a, b) => {
-      const av = a[key];
-      const bv = b[key];
-      if (av < bv) return direction === 'asc' ? -1 : 1;
-      if (av > bv) return direction === 'asc' ? 1 : -1;
-      return 0;
-    });
-
-    setCryptocurrencies(sortedData);
-  };
+  const isStable = (symbol: string) => symbol === 'USDT' || symbol === 'USDC';
 
   return (
-    <div className="min-h-screen w-full bg-gray-900 text-white">
-      <div className="w-full bg-gray-900 p-6 rounded-lg shadow-lg overflow-auto">
-        <div className="text-center border-b border-gray-700 pb-4">
-          <h2 className="text-3xl font-semibold text-yellow-400">Cryptocurrency Market</h2>
+    <div className="max-w-screen-xl mx-auto px-6 py-10">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary">Markets</h1>
+          <p className="text-text-secondary text-sm mt-0.5">{cryptos.length} assets available</p>
         </div>
+        <div className="relative">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+          <input
+            type="text"
+            placeholder="Search asset..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="bg-bg-elevated border border-border rounded-lg pl-9 pr-4 py-2 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent w-64 transition-colors"
+          />
+        </div>
+      </div>
 
-        <table className="w-full mt-4 border-collapse text-sm">
+      <div className="bg-bg-surface border border-border rounded-xl overflow-hidden">
+        <table className="w-full text-sm">
           <thead>
-            <tr className="text-gray-400 border-b border-gray-700">
-              <th
-                className="px-4 py-3 text-left cursor-pointer"
-                onClick={() => handleSort('name')}
-              >
-                Name {sortConfig.key === 'name' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
-              </th>
-              <th
-                className="px-4 py-3 text-left cursor-pointer"
-                onClick={() => handleSort('symbol')}
-              >
-                Symbol{' '}
-                {sortConfig.key === 'symbol' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
-              </th>
-              <th
-                className="px-4 py-3 text-left cursor-pointer"
-                onClick={() => handleSort('price')}
-              >
-                Price (USD){' '}
-                {sortConfig.key === 'price' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
-              </th>
-              <th
-                className="px-4 py-3 text-left cursor-pointer"
-                onClick={() => handleSort('change')}
-              >
-                Change (%){' '}
-                {sortConfig.key === 'change' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
-              </th>
-              <th className="px-4 py-3 text-left">Trade</th>
+            <tr className="bg-bg-elevated text-text-secondary text-xs uppercase tracking-wide">
+              <th className="px-6 py-3 text-left">#</th>
+              <th className="px-6 py-3 text-left">Asset</th>
+              <th className="px-6 py-3 text-right">Price (USD)</th>
+              <th className="px-6 py-3 text-right">24h</th>
+              <th className="px-6 py-3 text-right">Action</th>
             </tr>
           </thead>
           <tbody>
-            {cryptocurrencies.map((crypto, index) => (
-              <tr key={index} className="border-b border-gray-800 hover:bg-gray-800">
-                <td className="px-4 py-3 font-semibold text-white">{crypto.name}</td>
-                <td className="px-4 py-3 text-gray-300">{crypto.symbol}</td>
-                <td className="px-4 py-3 text-gray-300">${crypto.price}</td>
-                <td
-                  className={`px-4 py-3 ${
-                    crypto.change >= 0 ? 'text-green-400' : 'text-red-400'
-                  }`}
-                >
-                  {crypto.change}%
-                </td>
-                <td className="px-4 py-3">
-                  <button
-                    onClick={() => {
-                      setSelectedCrypto(crypto);
-                      setIsTradeOpen(true);
-                    }}
-                    className="text-yellow-400 hover:underline"
-                  >
-                    Trade
-                  </button>
+            {loading ? (
+              Array.from({ length: 10 }).map((_, i) => (
+                <tr key={i} className="border-t border-border">
+                  {Array.from({ length: 5 }).map((__, j) => (
+                    <td key={j} className="px-6 py-4">
+                      <div className="h-4 bg-bg-elevated rounded animate-pulse w-28" />
+                    </td>
+                  ))}
+                </tr>
+              ))
+            ) : filtered.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-6 py-16 text-center text-text-muted">
+                  No assets match &ldquo;{query}&rdquo;
                 </td>
               </tr>
-            ))}
+            ) : (
+              filtered.map((c, i) => (
+                <tr
+                  key={c._id}
+                  onClick={() => !isStable(c.symbol) && navigate(`/token/${c.symbol}/USDT`)}
+                  className="border-t border-border hover:bg-bg-elevated/50 transition-colors cursor-pointer"
+                >
+                  <td className="px-6 py-4 text-text-muted">{i + 1}</td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-bg-elevated flex items-center justify-center text-xs font-bold text-accent shrink-0">
+                        {c.symbol.slice(0, 2)}
+                      </div>
+                      <div>
+                        <p className="text-text-primary font-medium">{c.name}</p>
+                        <p className="text-text-muted text-xs">{c.symbol}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-right font-mono text-text-primary">
+                    ${c.current_price < 0.01
+                      ? c.current_price.toFixed(8)
+                      : c.current_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+                  <td className="px-6 py-4 text-right text-text-muted font-mono text-xs">—</td>
+                  <td className="px-6 py-4 text-right">
+                    {isStable(c.symbol) ? (
+                      <span className="text-text-muted text-xs">Stable</span>
+                    ) : (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); navigate(`/token/${c.symbol}/USDT`); }}
+                        className="bg-accent-muted text-accent hover:bg-accent hover:text-bg text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        Trade
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
-
-        {isTradeOpen && selectedCrypto && (
-          <div className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-50 z-50">
-            <div className="bg-gray-900 p-6 rounded-lg max-w-md w-full shadow-lg">
-              <h3 className="text-xl font-bold mb-4 text-yellow-400">
-                Trade {selectedCrypto.name} ({selectedCrypto.symbol})
-              </h3>
-              <select
-                value={selectedQuote}
-                onChange={(e) => setSelectedQuote(e.target.value)}
-                className="px-4 py-2 bg-gray-800 border border-gray-700 rounded mb-4 w-full text-white"
-              >
-                <option value="">-- Select quote currency --</option>
-                {cryptocurrencies
-                  .filter((c) => c.symbol !== selectedCrypto.symbol)
-                  .map((c) => (
-                    <option key={c.symbol} value={c.symbol}>
-                      {c.symbol}
-                    </option>
-                  ))}
-              </select>
-              <input
-                type="number"
-                value={tradeAmount}
-                onChange={(e) => setTradeAmount(e.target.value)}
-                placeholder="Enter amount"
-                className="px-4 py-2 bg-gray-800 border border-gray-700 rounded mb-4 w-full text-white"
-              />
-              <div className="flex space-x-4">
-                <button
-                  onClick={() => selectedQuote && navigate(`/token/${selectedCrypto.symbol}/${selectedQuote}`)}
-                  disabled={!selectedQuote}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg w-full hover:bg-green-700 disabled:opacity-50"
-                >
-                  Buy
-                </button>
-                <button
-                  onClick={() => selectedQuote && navigate(`/token/${selectedCrypto.symbol}/${selectedQuote}`)}
-                  disabled={!selectedQuote}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg w-full hover:bg-red-700 disabled:opacity-50"
-                >
-                  Sell
-                </button>
-              </div>
-              <button
-                onClick={() => setIsTradeOpen(false)}
-                className="w-full mt-4 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
 };
 
-export default CryptocurrencyPage;
+export default CryptocurrenciesPage;
